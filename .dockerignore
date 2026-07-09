@@ -1,0 +1,3 @@
+# Ignore everything — only requirements.txt is needed in the build context
+*
+!requirements.txt

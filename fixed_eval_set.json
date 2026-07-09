@@ -1,0 +1,1934 @@
+{
+  "grid_size": 16,
+  "subgrid_size": 8,
+  "score_radius": 2,
+  "generation_seed": 20260709,
+  "category_counts": {
+    "short/central": 17,
+    "short/boundary": 17,
+    "medium/central": 17,
+    "medium/boundary": 17,
+    "long/central": 16,
+    "long/boundary": 16
+  },
+  "distance_tiers": {
+    "short": [
+      1,
+      4
+    ],
+    "medium": [
+      5,
+      8
+    ],
+    "long": [
+      9,
+      14
+    ]
+  },
+  "target_locality_definitions": {
+    "central": "target >= 2 cells from every subgrid edge (score_radius halo fully unclipped)",
+    "boundary": "target within 2 cells of a subgrid edge (score_radius halo clipped on at least one side)"
+  },
+  "entries": [
+    {
+      "id": 0,
+      "seed": 2080419951,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        6,
+        4
+      ],
+      "target_local": [
+        2,
+        4
+      ],
+      "start_local": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": 1,
+      "seed": 1495616604,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 6,
+      "origin": [
+        2,
+        5
+      ],
+      "target_local": [
+        6,
+        3
+      ],
+      "start_local": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": 2,
+      "seed": 1815184571,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 3,
+      "origin": [
+        7,
+        6
+      ],
+      "target_local": [
+        1,
+        2
+      ],
+      "start_local": [
+        0,
+        4
+      ]
+    },
+    {
+      "id": 3,
+      "seed": 174704483,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 6,
+      "origin": [
+        1,
+        8
+      ],
+      "target_local": [
+        7,
+        0
+      ],
+      "start_local": [
+        4,
+        3
+      ]
+    },
+    {
+      "id": 4,
+      "seed": 1747669894,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 2,
+      "origin": [
+        7,
+        3
+      ],
+      "target_local": [
+        1,
+        5
+      ],
+      "start_local": [
+        0,
+        6
+      ]
+    },
+    {
+      "id": 5,
+      "seed": 1199641432,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        4,
+        4
+      ],
+      "target_local": [
+        4,
+        4
+      ],
+      "start_local": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": 6,
+      "seed": 496091740,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 4,
+      "origin": [
+        5,
+        5
+      ],
+      "target_local": [
+        3,
+        3
+      ],
+      "start_local": [
+        4,
+        6
+      ]
+    },
+    {
+      "id": 7,
+      "seed": 823424337,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 11,
+      "origin": [
+        6,
+        1
+      ],
+      "target_local": [
+        2,
+        7
+      ],
+      "start_local": [
+        7,
+        1
+      ]
+    },
+    {
+      "id": 8,
+      "seed": 115835948,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 5,
+      "origin": [
+        5,
+        7
+      ],
+      "target_local": [
+        3,
+        1
+      ],
+      "start_local": [
+        6,
+        3
+      ]
+    },
+    {
+      "id": 9,
+      "seed": 677243534,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 7,
+      "origin": [
+        5,
+        7
+      ],
+      "target_local": [
+        3,
+        1
+      ],
+      "start_local": [
+        7,
+        4
+      ]
+    },
+    {
+      "id": 10,
+      "seed": 1567650721,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 8,
+      "origin": [
+        4,
+        3
+      ],
+      "target_local": [
+        4,
+        5
+      ],
+      "start_local": [
+        7,
+        0
+      ]
+    },
+    {
+      "id": 11,
+      "seed": 731594311,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 3,
+      "origin": [
+        4,
+        1
+      ],
+      "target_local": [
+        4,
+        7
+      ],
+      "start_local": [
+        7,
+        7
+      ]
+    },
+    {
+      "id": 12,
+      "seed": 460055316,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 3,
+      "origin": [
+        1,
+        1
+      ],
+      "target_local": [
+        7,
+        7
+      ],
+      "start_local": [
+        4,
+        7
+      ]
+    },
+    {
+      "id": 13,
+      "seed": 2114547194,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 5,
+      "origin": [
+        1,
+        1
+      ],
+      "target_local": [
+        7,
+        7
+      ],
+      "start_local": [
+        6,
+        3
+      ]
+    },
+    {
+      "id": 14,
+      "seed": 1174170380,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 7,
+      "origin": [
+        7,
+        1
+      ],
+      "target_local": [
+        1,
+        7
+      ],
+      "start_local": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": 15,
+      "seed": 614590754,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 3,
+      "origin": [
+        3,
+        1
+      ],
+      "target_local": [
+        5,
+        7
+      ],
+      "start_local": [
+        3,
+        6
+      ]
+    },
+    {
+      "id": 16,
+      "seed": 1845699008,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        4,
+        6
+      ],
+      "target_local": [
+        4,
+        2
+      ],
+      "start_local": [
+        7,
+        4
+      ]
+    },
+    {
+      "id": 17,
+      "seed": 1834014182,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 4,
+      "origin": [
+        7,
+        5
+      ],
+      "target_local": [
+        1,
+        3
+      ],
+      "start_local": [
+        3,
+        1
+      ]
+    },
+    {
+      "id": 18,
+      "seed": 1168683739,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 8,
+      "origin": [
+        1,
+        3
+      ],
+      "target_local": [
+        7,
+        5
+      ],
+      "start_local": [
+        3,
+        1
+      ]
+    },
+    {
+      "id": 19,
+      "seed": 977450559,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 6,
+      "origin": [
+        3,
+        4
+      ],
+      "target_local": [
+        5,
+        4
+      ],
+      "start_local": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": 20,
+      "seed": 1829213395,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 8,
+      "origin": [
+        8,
+        3
+      ],
+      "target_local": [
+        0,
+        5
+      ],
+      "start_local": [
+        6,
+        3
+      ]
+    },
+    {
+      "id": 21,
+      "seed": 12721980,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 8,
+      "origin": [
+        8,
+        4
+      ],
+      "target_local": [
+        0,
+        4
+      ],
+      "start_local": [
+        5,
+        7
+      ]
+    },
+    {
+      "id": 22,
+      "seed": 1267396839,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 2,
+      "origin": [
+        4,
+        5
+      ],
+      "target_local": [
+        4,
+        3
+      ],
+      "start_local": [
+        6,
+        3
+      ]
+    },
+    {
+      "id": 23,
+      "seed": 1567403523,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 2,
+      "origin": [
+        1,
+        6
+      ],
+      "target_local": [
+        7,
+        2
+      ],
+      "start_local": [
+        7,
+        4
+      ]
+    },
+    {
+      "id": 24,
+      "seed": 1397066451,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 4,
+      "origin": [
+        5,
+        7
+      ],
+      "target_local": [
+        3,
+        1
+      ],
+      "start_local": [
+        7,
+        1
+      ]
+    },
+    {
+      "id": 25,
+      "seed": 710529413,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 5,
+      "origin": [
+        4,
+        7
+      ],
+      "target_local": [
+        4,
+        1
+      ],
+      "start_local": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 26,
+      "seed": 1945036923,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 4,
+      "origin": [
+        4,
+        5
+      ],
+      "target_local": [
+        4,
+        3
+      ],
+      "start_local": [
+        7,
+        4
+      ]
+    },
+    {
+      "id": 27,
+      "seed": 1476108924,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 8,
+      "origin": [
+        4,
+        1
+      ],
+      "target_local": [
+        4,
+        7
+      ],
+      "start_local": [
+        5,
+        0
+      ]
+    },
+    {
+      "id": 28,
+      "seed": 594979083,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 7,
+      "origin": [
+        7,
+        4
+      ],
+      "target_local": [
+        1,
+        4
+      ],
+      "start_local": [
+        5,
+        7
+      ]
+    },
+    {
+      "id": 29,
+      "seed": 306872948,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 2,
+      "origin": [
+        2,
+        7
+      ],
+      "target_local": [
+        6,
+        1
+      ],
+      "start_local": [
+        5,
+        2
+      ]
+    },
+    {
+      "id": 30,
+      "seed": 947067174,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 6,
+      "origin": [
+        8,
+        4
+      ],
+      "target_local": [
+        0,
+        4
+      ],
+      "start_local": [
+        5,
+        3
+      ]
+    },
+    {
+      "id": 31,
+      "seed": 73408250,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 5,
+      "origin": [
+        7,
+        1
+      ],
+      "target_local": [
+        1,
+        7
+      ],
+      "start_local": [
+        5,
+        6
+      ]
+    },
+    {
+      "id": 32,
+      "seed": 333671514,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 2,
+      "origin": [
+        5,
+        1
+      ],
+      "target_local": [
+        3,
+        7
+      ],
+      "start_local": [
+        5,
+        7
+      ]
+    },
+    {
+      "id": 33,
+      "seed": 670029299,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 10,
+      "origin": [
+        8,
+        4
+      ],
+      "target_local": [
+        0,
+        4
+      ],
+      "start_local": [
+        7,
+        7
+      ]
+    },
+    {
+      "id": 34,
+      "seed": 1985430579,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 7,
+      "origin": [
+        8,
+        5
+      ],
+      "target_local": [
+        0,
+        3
+      ],
+      "start_local": [
+        5,
+        5
+      ]
+    },
+    {
+      "id": 35,
+      "seed": 608768115,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 7,
+      "origin": [
+        1,
+        4
+      ],
+      "target_local": [
+        7,
+        4
+      ],
+      "start_local": [
+        3,
+        7
+      ]
+    },
+    {
+      "id": 36,
+      "seed": 1966200714,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        6,
+        5
+      ],
+      "target_local": [
+        2,
+        3
+      ],
+      "start_local": [
+        0,
+        6
+      ]
+    },
+    {
+      "id": 37,
+      "seed": 1254644509,
+      "distance_tier": "medium",
+      "target_locality": "boundary",
+      "distance": 6,
+      "origin": [
+        4,
+        7
+      ],
+      "target_local": [
+        4,
+        1
+      ],
+      "start_local": [
+        0,
+        3
+      ]
+    },
+    {
+      "id": 38,
+      "seed": 964321531,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 3,
+      "origin": [
+        8,
+        6
+      ],
+      "target_local": [
+        0,
+        2
+      ],
+      "start_local": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": 39,
+      "seed": 1337604597,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 1,
+      "origin": [
+        4,
+        5
+      ],
+      "target_local": [
+        4,
+        3
+      ],
+      "start_local": [
+        3,
+        3
+      ]
+    },
+    {
+      "id": 40,
+      "seed": 455124690,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 13,
+      "origin": [
+        8,
+        8
+      ],
+      "target_local": [
+        0,
+        0
+      ],
+      "start_local": [
+        7,
+        6
+      ]
+    },
+    {
+      "id": 41,
+      "seed": 338202461,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 4,
+      "origin": [
+        8,
+        2
+      ],
+      "target_local": [
+        0,
+        6
+      ],
+      "start_local": [
+        0,
+        2
+      ]
+    },
+    {
+      "id": 42,
+      "seed": 1340052428,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 3,
+      "origin": [
+        5,
+        3
+      ],
+      "target_local": [
+        3,
+        5
+      ],
+      "start_local": [
+        3,
+        2
+      ]
+    },
+    {
+      "id": 43,
+      "seed": 2049703517,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 4,
+      "origin": [
+        8,
+        6
+      ],
+      "target_local": [
+        0,
+        2
+      ],
+      "start_local": [
+        0,
+        6
+      ]
+    },
+    {
+      "id": 44,
+      "seed": 551144394,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 9,
+      "origin": [
+        1,
+        3
+      ],
+      "target_local": [
+        7,
+        5
+      ],
+      "start_local": [
+        3,
+        0
+      ]
+    },
+    {
+      "id": 45,
+      "seed": 722313633,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 1,
+      "origin": [
+        3,
+        4
+      ],
+      "target_local": [
+        5,
+        4
+      ],
+      "start_local": [
+        5,
+        3
+      ]
+    },
+    {
+      "id": 46,
+      "seed": 50010640,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 10,
+      "origin": [
+        6,
+        3
+      ],
+      "target_local": [
+        2,
+        5
+      ],
+      "start_local": [
+        7,
+        0
+      ]
+    },
+    {
+      "id": 47,
+      "seed": 1418103902,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        3,
+        4
+      ],
+      "target_local": [
+        5,
+        4
+      ],
+      "start_local": [
+        3,
+        1
+      ]
+    },
+    {
+      "id": 48,
+      "seed": 1538230374,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 1,
+      "origin": [
+        4,
+        3
+      ],
+      "target_local": [
+        4,
+        5
+      ],
+      "start_local": [
+        5,
+        5
+      ]
+    },
+    {
+      "id": 49,
+      "seed": 504841290,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 4,
+      "origin": [
+        5,
+        7
+      ],
+      "target_local": [
+        3,
+        1
+      ],
+      "start_local": [
+        1,
+        3
+      ]
+    },
+    {
+      "id": 50,
+      "seed": 2022152248,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 11,
+      "origin": [
+        7,
+        8
+      ],
+      "target_local": [
+        1,
+        0
+      ],
+      "start_local": [
+        5,
+        7
+      ]
+    },
+    {
+      "id": 51,
+      "seed": 241621773,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 1,
+      "origin": [
+        4,
+        1
+      ],
+      "target_local": [
+        4,
+        7
+      ],
+      "start_local": [
+        3,
+        7
+      ]
+    },
+    {
+      "id": 52,
+      "seed": 970379496,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        3,
+        4
+      ],
+      "target_local": [
+        5,
+        4
+      ],
+      "start_local": [
+        2,
+        2
+      ]
+    },
+    {
+      "id": 53,
+      "seed": 248088721,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 3,
+      "origin": [
+        2,
+        5
+      ],
+      "target_local": [
+        6,
+        3
+      ],
+      "start_local": [
+        3,
+        3
+      ]
+    },
+    {
+      "id": 54,
+      "seed": 397011533,
+      "distance_tier": "short",
+      "target_locality": "boundary",
+      "distance": 1,
+      "origin": [
+        7,
+        2
+      ],
+      "target_local": [
+        1,
+        6
+      ],
+      "start_local": [
+        0,
+        6
+      ]
+    },
+    {
+      "id": 55,
+      "seed": 1868330940,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 2,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        4,
+        6
+      ]
+    },
+    {
+      "id": 56,
+      "seed": 1050370557,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 6,
+      "origin": [
+        4,
+        3
+      ],
+      "target_local": [
+        4,
+        5
+      ],
+      "start_local": [
+        2,
+        1
+      ]
+    },
+    {
+      "id": 57,
+      "seed": 78136239,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 2,
+      "origin": [
+        5,
+        5
+      ],
+      "target_local": [
+        3,
+        3
+      ],
+      "start_local": [
+        4,
+        2
+      ]
+    },
+    {
+      "id": 58,
+      "seed": 1780755890,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 8,
+      "origin": [
+        3,
+        6
+      ],
+      "target_local": [
+        5,
+        2
+      ],
+      "start_local": [
+        0,
+        5
+      ]
+    },
+    {
+      "id": 59,
+      "seed": 1216845073,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 10,
+      "origin": [
+        3,
+        8
+      ],
+      "target_local": [
+        5,
+        0
+      ],
+      "start_local": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": 60,
+      "seed": 1823408538,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 3,
+      "origin": [
+        4,
+        5
+      ],
+      "target_local": [
+        4,
+        3
+      ],
+      "start_local": [
+        2,
+        2
+      ]
+    },
+    {
+      "id": 61,
+      "seed": 113676855,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 9,
+      "origin": [
+        8,
+        3
+      ],
+      "target_local": [
+        0,
+        5
+      ],
+      "start_local": [
+        6,
+        2
+      ]
+    },
+    {
+      "id": 62,
+      "seed": 314716030,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 4,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        1,
+        5
+      ]
+    },
+    {
+      "id": 63,
+      "seed": 1595586061,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 9,
+      "origin": [
+        2,
+        4
+      ],
+      "target_local": [
+        6,
+        4
+      ],
+      "start_local": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": 64,
+      "seed": 536074812,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 10,
+      "origin": [
+        4,
+        2
+      ],
+      "target_local": [
+        4,
+        6
+      ],
+      "start_local": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 65,
+      "seed": 2057893043,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 8,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": 66,
+      "seed": 692007177,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 12,
+      "origin": [
+        8,
+        1
+      ],
+      "target_local": [
+        0,
+        7
+      ],
+      "start_local": [
+        5,
+        0
+      ]
+    },
+    {
+      "id": 67,
+      "seed": 1696694936,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 6,
+      "origin": [
+        5,
+        3
+      ],
+      "target_local": [
+        3,
+        5
+      ],
+      "start_local": [
+        5,
+        1
+      ]
+    },
+    {
+      "id": 68,
+      "seed": 1906138959,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 2,
+      "origin": [
+        4,
+        3
+      ],
+      "target_local": [
+        4,
+        5
+      ],
+      "start_local": [
+        5,
+        4
+      ]
+    },
+    {
+      "id": 69,
+      "seed": 780905674,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 12,
+      "origin": [
+        7,
+        8
+      ],
+      "target_local": [
+        1,
+        0
+      ],
+      "start_local": [
+        7,
+        6
+      ]
+    },
+    {
+      "id": 70,
+      "seed": 1335721614,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 3,
+      "origin": [
+        4,
+        3
+      ],
+      "target_local": [
+        4,
+        5
+      ],
+      "start_local": [
+        3,
+        7
+      ]
+    },
+    {
+      "id": 71,
+      "seed": 1867380413,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 3,
+      "origin": [
+        6,
+        4
+      ],
+      "target_local": [
+        2,
+        4
+      ],
+      "start_local": [
+        4,
+        5
+      ]
+    },
+    {
+      "id": 72,
+      "seed": 594142321,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 4,
+      "origin": [
+        6,
+        4
+      ],
+      "target_local": [
+        2,
+        4
+      ],
+      "start_local": [
+        1,
+        7
+      ]
+    },
+    {
+      "id": 73,
+      "seed": 1752763716,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        6,
+        3
+      ],
+      "target_local": [
+        2,
+        5
+      ],
+      "start_local": [
+        2,
+        0
+      ]
+    },
+    {
+      "id": 74,
+      "seed": 1818382155,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        5,
+        4
+      ],
+      "target_local": [
+        3,
+        4
+      ],
+      "start_local": [
+        7,
+        5
+      ]
+    },
+    {
+      "id": 75,
+      "seed": 1050249166,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 2,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        5,
+        7
+      ]
+    },
+    {
+      "id": 76,
+      "seed": 882025038,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 7,
+      "origin": [
+        5,
+        4
+      ],
+      "target_local": [
+        3,
+        4
+      ],
+      "start_local": [
+        7,
+        1
+      ]
+    },
+    {
+      "id": 77,
+      "seed": 243191223,
+      "distance_tier": "short",
+      "target_locality": "central",
+      "distance": 2,
+      "origin": [
+        5,
+        3
+      ],
+      "target_local": [
+        3,
+        5
+      ],
+      "start_local": [
+        4,
+        6
+      ]
+    },
+    {
+      "id": 78,
+      "seed": 187577848,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 5,
+      "origin": [
+        5,
+        6
+      ],
+      "target_local": [
+        3,
+        2
+      ],
+      "start_local": [
+        2,
+        6
+      ]
+    },
+    {
+      "id": 79,
+      "seed": 1307928124,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 10,
+      "origin": [
+        1,
+        7
+      ],
+      "target_local": [
+        7,
+        1
+      ],
+      "start_local": [
+        1,
+        5
+      ]
+    },
+    {
+      "id": 80,
+      "seed": 1359741409,
+      "distance_tier": "medium",
+      "target_locality": "central",
+      "distance": 6,
+      "origin": [
+        6,
+        4
+      ],
+      "target_local": [
+        2,
+        4
+      ],
+      "start_local": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 81,
+      "seed": 73435725,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 9,
+      "origin": [
+        6,
+        8
+      ],
+      "target_local": [
+        2,
+        0
+      ],
+      "start_local": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": 82,
+      "seed": 880308877,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 10,
+      "origin": [
+        8,
+        5
+      ],
+      "target_local": [
+        0,
+        3
+      ],
+      "start_local": [
+        7,
+        6
+      ]
+    },
+    {
+      "id": 83,
+      "seed": 1401627392,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 9,
+      "origin": [
+        3,
+        7
+      ],
+      "target_local": [
+        5,
+        1
+      ],
+      "start_local": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": 84,
+      "seed": 856867614,
+      "distance_tier": "long",
+      "target_locality": "boundary",
+      "distance": 10,
+      "origin": [
+        8,
+        3
+      ],
+      "target_local": [
+        0,
+        5
+      ],
+      "start_local": [
+        7,
+        2
+      ]
+    },
+    {
+      "id": 85,
+      "seed": 184826741,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        6,
+        6
+      ],
+      "target_local": [
+        2,
+        2
+      ],
+      "start_local": [
+        7,
+        6
+      ]
+    },
+    {
+      "id": 86,
+      "seed": 1659277438,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        6,
+        6
+      ],
+      "target_local": [
+        2,
+        2
+      ],
+      "start_local": [
+        6,
+        7
+      ]
+    },
+    {
+      "id": 87,
+      "seed": 418537667,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 10,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 88,
+      "seed": 364169868,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        6,
+        3
+      ],
+      "target_local": [
+        2,
+        5
+      ],
+      "start_local": [
+        6,
+        0
+      ]
+    },
+    {
+      "id": 89,
+      "seed": 1533863383,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        6,
+        4
+      ],
+      "target_local": [
+        2,
+        4
+      ],
+      "start_local": [
+        7,
+        0
+      ]
+    },
+    {
+      "id": 90,
+      "seed": 10200984,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        3,
+        6
+      ],
+      "target_local": [
+        5,
+        2
+      ],
+      "start_local": [
+        1,
+        7
+      ]
+    },
+    {
+      "id": 91,
+      "seed": 1463135716,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        3,
+        4
+      ],
+      "target_local": [
+        5,
+        4
+      ],
+      "start_local": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 92,
+      "seed": 1751668734,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        6,
+        3
+      ],
+      "target_local": [
+        2,
+        5
+      ],
+      "start_local": [
+        7,
+        1
+      ]
+    },
+    {
+      "id": 93,
+      "seed": 1064418136,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        0,
+        1
+      ]
+    },
+    {
+      "id": 94,
+      "seed": 2063154926,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 10,
+      "origin": [
+        6,
+        6
+      ],
+      "target_local": [
+        2,
+        2
+      ],
+      "start_local": [
+        7,
+        7
+      ]
+    },
+    {
+      "id": 95,
+      "seed": 581308269,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        3,
+        5
+      ],
+      "target_local": [
+        5,
+        3
+      ],
+      "start_local": [
+        0,
+        7
+      ]
+    },
+    {
+      "id": 96,
+      "seed": 237096094,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        3,
+        6
+      ],
+      "target_local": [
+        5,
+        2
+      ],
+      "start_local": [
+        0,
+        6
+      ]
+    },
+    {
+      "id": 97,
+      "seed": 1278755450,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        3,
+        3
+      ],
+      "target_local": [
+        5,
+        5
+      ],
+      "start_local": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": 98,
+      "seed": 1058823640,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        6,
+        5
+      ],
+      "target_local": [
+        2,
+        3
+      ],
+      "start_local": [
+        7,
+        7
+      ]
+    },
+    {
+      "id": 99,
+      "seed": 1220410708,
+      "distance_tier": "long",
+      "target_locality": "central",
+      "distance": 9,
+      "origin": [
+        5,
+        3
+      ],
+      "target_local": [
+        3,
+        5
+      ],
+      "start_local": [
+        7,
+        0
+      ]
+    }
+  ]
+}

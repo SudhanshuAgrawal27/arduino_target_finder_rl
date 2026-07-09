@@ -1,0 +1,22 @@
+# Config for the standalone eval.py. Override checkpoint_dir on the command
+# line to point at any checkpoint, e.g.:
+#   python3 eval.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
+#
+# `seed` is fixed (not left to change per-run) so every checkpoint is
+# evaluated on the exact same sequence of problem instances -- that's what
+# makes eval_stats comparable across checkpoints/epochs. Don't override it
+# when comparing checkpoints; only override checkpoint_dir.
+
+defaults:
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: disabled
+  - _self_
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+checkpoint_dir: trained_models/2026-07-07_05-01-02/epoch_20
+episodes: 50
+seed: 123

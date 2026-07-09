@@ -1,0 +1,15 @@
+# Accelerate launch config for this project. Pass it explicitly:
+#   accelerate launch --config_file conf/accelerate.yaml train.py
+# (Hydra overrides still work, e.g. ... train.py training.num_epochs=5)
+#
+# Single-process, CPU-pinned: the model is a tiny 12->64->64 MLP, so the GPU
+# buys essentially nothing and the per-step single-observation host<->device
+# transfers during rollout collection are pure overhead. The real bottleneck
+# is serial episode simulation, which lives on CPU either way. Flip use_cpu
+# to false if you ever scale the network up enough to be GPU-bound.
+compute_environment: LOCAL_MACHINE
+distributed_type: "NO"
+num_processes: 1
+machine_rank: 0
+use_cpu: true
+mixed_precision: "no"
