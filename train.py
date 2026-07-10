@@ -53,6 +53,7 @@ def _env_kwargs(cfg):
         max_steps=cfg.env.max_steps,
         history_length=cfg.env.history_length,
         step_penalty=cfg.env.step_penalty,
+        wall_penalty=cfg.env.wall_penalty,
         success_bonus=cfg.env.success_bonus,
     )
 

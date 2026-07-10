@@ -44,6 +44,7 @@ def main(cfg):
         max_steps=train_cfg.env.max_steps,
         history_length=train_cfg.env.history_length,
         step_penalty=train_cfg.env.step_penalty,
+        wall_penalty=train_cfg.env.get("wall_penalty", 0.0),  # older checkpoints predate this field
         success_bonus=train_cfg.env.success_bonus,
     )
 

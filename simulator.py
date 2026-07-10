@@ -17,6 +17,7 @@ SCORE_RADIUS = 2
 MAX_STEPS = 100
 HISTORY_LENGTH = 4
 STEP_PENALTY = 0.01   # per-step reward cost for landing on an "empty" (proximity-0) cell
+WALL_PENALTY = 0.05   # reward cost for an illegal move (walking into the subgrid edge, a no-op)
 SUCCESS_BONUS = 1.0   # terminal reward for reaching the target
 
 ACTIONS = ("left", "right", "up", "down")
@@ -86,13 +87,14 @@ class GridEnvironment:
     def __init__(self, grid_size=GRID_SIZE, subgrid_size=SUBGRID_SIZE,
                  score_radius=SCORE_RADIUS, max_steps=MAX_STEPS,
                  history_length=HISTORY_LENGTH, step_penalty=STEP_PENALTY,
-                 success_bonus=SUCCESS_BONUS):
+                 wall_penalty=WALL_PENALTY, success_bonus=SUCCESS_BONUS):
         self.grid_size = grid_size
         self.subgrid_size = subgrid_size
         self.score_radius = score_radius
         self.max_steps = max_steps
         self.history_length = history_length
         self.step_penalty = step_penalty
+        self.wall_penalty = wall_penalty
         self.success_bonus = success_bonus
         self.target_global = (grid_size // 2, grid_size // 2)
 
@@ -215,7 +217,8 @@ class GridEnvironment:
         new_y = self.agent_local[1] + dy
 
         # Illegal moves (off the subgrid) are simply not performed.
-        if 0 <= new_x < self.subgrid_size and 0 <= new_y < self.subgrid_size:
+        legal_move = 0 <= new_x < self.subgrid_size and 0 <= new_y < self.subgrid_size
+        if legal_move:
             self.agent_local = (new_x, new_y)
 
         self.steps += 1
@@ -237,6 +240,12 @@ class GridEnvironment:
         #   - plus a small step_penalty whenever the new cell is "empty"
         #     (proximity 0, i.e. outside the radius), nudging the agent to
         #     head toward the target region instead of wandering empty space.
+        #   - plus a wall_penalty whenever the action was illegal (walked
+        #     into the subgrid edge, a no-op) -- distinct from step_penalty
+        #     since bumping a wall wastes a move regardless of whether the
+        #     agent's (unchanged) position happens to be within the radius,
+        #     and it's what directly discourages the wall-hugging/oscillating
+        #     loops a purely position-based reward doesn't punish.
         # terminated has no future (GAE bootstraps V=0); truncated is an
         # artificial cutoff, so its final state is bootstrapped from the
         # critic instead (see rollout.py).
@@ -246,6 +255,8 @@ class GridEnvironment:
             self._current_reward = self._current_score - prev_proximity
             if self._current_score == 0.0:
                 self._current_reward -= self.step_penalty
+            if not legal_move:
+                self._current_reward -= self.wall_penalty
 
         return self.get_state()
 

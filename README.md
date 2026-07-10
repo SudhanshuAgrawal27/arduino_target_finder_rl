@@ -29,16 +29,20 @@ The window exists because the agent has no other way to tell whether its last mo
 
 ### Reward
 
-`score` is computed from the agent's Chebyshev (king-move) distance to the target:
+Two distinct signals, kept separate on purpose — `score` (what the agent observes) and `reward` (what training optimizes):
 
-| Condition | Score |
+**`score`** — a persistent, distance-graded "warmth" reading, based on Manhattan (L1) distance to the target (chosen over Chebyshev so every legal orthogonal move changes it by exactly 1, guaranteeing a strictly-warming move always exists): `1.0` at the target, decreasing linearly to `0` at the edge of `score_radius` (default 2: distance 1 → 0.667, distance 2 → 0.333), and `0` beyond it. It's a pure function of position — the same cell always reads the same value — so the observation history carries a followable gradient the agent can hill-climb.
+
+**`reward`** — the PPO training signal for the most recent step:
+
+| Condition | Reward |
 |---|---|
-| At the target | **1.0** |
-| Within `score_radius` (default 2) of the target, first time entering that radius this episode | **0.5** |
-| Within `score_radius`, but the bonus was already claimed this episode | 0.0 |
-| Outside `score_radius` | 0.0 |
+| Reached the target | `success_bonus` (default 1.0) |
+| Otherwise | `score(new) − score(old)` (potential-based shaping — positive for closing in, negative for backing off) |
+| ...and the new cell is outside `score_radius` (`score == 0`) | additionally `− step_penalty` (default 0.01) |
+| ...and the action was illegal (walked into the subgrid edge, a no-op) | additionally `− wall_penalty` (default 0.05) |
 
-The `0.5` radius-entry bonus is granted **at most once per episode** — staying in the radius, or leaving and re-entering it, does not grant it again. This prevents the agent from farming reward by oscillating in and out of the radius instead of pushing on to the target.
+Because the shaping term is a difference of a position-only potential, any loop or lingering near the target telescopes to ~0 — the agent can't farm reward by circling in the radius instead of pushing on to the target. `step_penalty` nudges it out of empty space; `wall_penalty` discourages wasting a move bumping a wall (and stacks with `step_penalty` if that wasted move also leaves it outside the radius).
 
 ### Episode termination
 

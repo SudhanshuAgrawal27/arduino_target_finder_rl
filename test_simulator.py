@@ -184,6 +184,36 @@ def test_step_penalty_charged_on_empty_cells():
     assert env.reward == pytest.approx(-0.1)
 
 
+def test_wall_penalty_charged_on_illegal_move():
+    env = GridEnvironment(max_steps=100, step_penalty=0.0, wall_penalty=0.1)
+    env.agent_local = (0, 4)
+    env._current_score = env._proximity(env.agent_local)
+    env.perform_action("left")  # illegal: off the left edge, a no-op
+    assert env.agent_local == (0, 4)
+    assert env.reward == pytest.approx(-0.1)
+
+
+def test_wall_penalty_not_charged_on_legal_move():
+    env = GridEnvironment(max_steps=100, step_penalty=0.0, wall_penalty=0.1)
+    env.agent_local = (4, 4)
+    env._current_score = env._proximity(env.agent_local)
+    prev_proximity = env._current_score
+    env.perform_action("up")  # legal
+    assert env.reward == pytest.approx(env._current_score - prev_proximity)
+
+
+def test_wall_penalty_stacks_with_step_penalty_outside_radius():
+    env = GridEnvironment(score_radius=2, max_steps=100, step_penalty=0.01, wall_penalty=0.05)
+    env.target_local = (env.subgrid_size - 1, env.subgrid_size - 1)  # far corner
+    env.agent_local = (0, 0)
+    env._current_score = env._proximity(env.agent_local)
+    assert env._current_score == 0.0                # start is empty (outside radius)
+
+    env.perform_action("left")                      # illegal AND stays outside radius
+    assert env.agent_local == (0, 0)
+    assert env.reward == pytest.approx(-0.06)
+
+
 def test_reaching_target_pays_success_bonus():
     env = GridEnvironment(max_steps=100, success_bonus=1.0)
     tx, ty = env.target_local
