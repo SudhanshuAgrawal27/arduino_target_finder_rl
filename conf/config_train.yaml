@@ -26,25 +26,22 @@ env:
   success_bonus: 1.0     # terminal reward for reaching the target
 
 network:
-  hidden_dim: 128        # bumped from 64 (config.yaml): search over a 4-step window needs more capacity
+  hidden_dim: 128
 
 ppo:
-  gamma: 0.99            # discount factor, matches max_steps horizon (standard)
-  lam: 0.95              # GAE lambda (standard)
-  clip_eps: 0.2          # PPO ratio clip range [1-clip_eps, 1+clip_eps] (standard)
-  value_coef: 0.5        # weight on the value loss term (standard)
-  entropy_coef: 0.01     # PPO standard: reward is now a dense proximity gradient (not sparse), so the
-                         # policy no longer needs extra exploration to stumble onto the target -- and lower
-                         # entropy lets the greedy policy commit, which is what the reward redesign targets
-  learning_rate: 3.0e-4  # PPO default; linearly annealed down to 10% over training.num_epochs (see train.py)
-  update_epochs: 4       # gradient-update passes over each collected batch (standard)
-  minibatch_size: 1024   # bumped from 256: keeps updates/epoch reasonable given the larger batch size
-  max_grad_norm: 0.5     # global grad-norm clip per update step (standard PPO stability safeguard)
+  gamma: 0.99            # discount factor
+  lam: 0.95              # GAE lambda
+  clip_eps: 0.2          # PPO ratio clip range [1-clip_eps, 1+clip_eps]
+  value_coef: 0.5        # weight on the value loss term
+  entropy_coef: 0.01     # weight on the entropy bonus
+  learning_rate: 3.0e-4  # linearly annealed down to 10% over training.num_epochs (see train.py)
+  update_epochs: 4       # gradient-update passes over each collected batch
+  minibatch_size: 1024
+  max_grad_norm: 0.5     # global grad-norm clip per update step
 
 training:
-  num_epochs: 150            # bumped from 100: LR now decays over training, and train curves
-                               # hadn't clearly plateaued by epoch 100 under the old constant LR
-  episodes_per_epoch: 1000   # one epoch = 1000 simulations (task definition)
+  num_epochs: 150
+  episodes_per_epoch: 1000   # one epoch = 1000 simulations
   eval_episodes: 100         # eval + baseline + val-loss episodes, run every epoch
   eval_seed: 999              # fixed seed so eval/baseline/val replay the same episodes every epoch
 

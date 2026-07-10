@@ -140,9 +140,7 @@ def test_proximity_is_graded_by_distance():
 
 
 def test_proximity_is_persistent_across_revisits():
-    # Unlike the old one-time radius bonus, proximity is a pure function of
-    # position: the same cell always reads the same warmth, so a revisited
-    # cell in the observation history is not aliased to "far away".
+    # Proximity is a pure function of position: same cell -> same warmth.
     env = GridEnvironment(score_radius=2)
     tx, ty = env.target_local
     near = (tx - 1, ty)

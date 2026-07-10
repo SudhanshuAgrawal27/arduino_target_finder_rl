@@ -12,30 +12,24 @@ from simulator import ACTIONS, GridEnvironment, run_simulation, temporary_seed
 
 
 def collect_rollouts(env_kwargs, model, n_episodes, gamma, lam, episode_seeds=None, desc="rollout"):
-    """Run n_episodes full episodes serially (one GridEnvironment at a
-    time, engine="mlp_network") under `model`, and turn them into a flat
-    training batch.
+    """Run n_episodes full episodes serially (one GridEnvironment at a time,
+    engine="mlp_network") under `model`, and turn them into a flat training
+    batch.
 
-    `env_kwargs` configures each GridEnvironment (grid_size, subgrid_size,
-    score_radius, max_steps, history_length); a fresh instance is
-    constructed per episode.
-
-    `episode_seeds=None` (the default, used for actual training rollouts):
-    episode-to-episode variety comes from the global random stream (see
-    simulator.set_global_seed) continuing to advance across the whole call.
-    Pass a list of `n_episodes` seeds (e.g. from simulator.derive_episode_seeds)
-    to instead wrap each episode in `temporary_seed(episode_seeds[i])` --
-    fixing the exact set of problem instances played and leaving the
-    ambient global stream undisturbed by the call, e.g. for a
-    validation-loss batch that must reuse eval's episode set.
+    `env_kwargs` configures each GridEnvironment; a fresh instance is
+    constructed per episode. `episode_seeds=None` (default) draws episodes
+    from the ambient global random stream; pass a list of `n_episodes` seeds
+    (e.g. from simulator.derive_episode_seeds) to instead replay a fixed set
+    of problem instances via `temporary_seed`, without disturbing the
+    ambient stream -- e.g. for a validation batch that must reuse eval's
+    episode set.
 
     `model` must expose `.act`, `.get_value` (network.ActorCritic does) --
     pass the unwrapped model if it's been through accelerator.prepare().
 
     Returns (batch, stats): batch is a dict of stacked tensors
-    (observations, actions, old_log_probs, advantages, returns), all still
-    on CPU; stats holds per-episode lists (episode_returns, episode_lengths,
-    successes) for logging.
+    (observations, actions, old_log_probs, advantages, returns); stats holds
+    per-episode lists (episode_returns, episode_lengths, successes).
     """
     obs_list, action_list, log_prob_list, advantage_list, return_list = [], [], [], [], []
     episode_returns, episode_lengths, successes = [], [], []
@@ -50,9 +44,8 @@ def collect_rollouts(env_kwargs, model, n_episodes, gamma, lam, episode_seeds=No
         rewards = [trajectory[t + 1]["reward"] for t in range(n_steps)]
         values = [trajectory[t + 1]["value"] for t in range(n_steps)]
 
-        # terminated: no future, bootstrap with 0. truncated: the episode
-        # was cut off, not concluded, so bootstrap with the critic's own
-        # estimate of the final (never-acted-on) state.
+        # terminated: no future, bootstrap 0. truncated: bootstrap the
+        # critic's estimate of the final state.
         bootstrap_value = 0.0 if env.terminated else model.get_value(trajectory[-1]["observation"])
         advantages, returns = compute_gae(rewards, values, bootstrap_value, gamma, lam)
 

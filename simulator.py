@@ -16,8 +16,8 @@ TARGET_GLOBAL = (GRID_SIZE // 2, GRID_SIZE // 2)  # (8, 8)
 SCORE_RADIUS = 2
 MAX_STEPS = 100
 HISTORY_LENGTH = 4
-STEP_PENALTY = 0.01   # per-step reward cost for landing on an "empty" (proximity-0) cell
-WALL_PENALTY = 0.05   # reward cost for an illegal move (walking into the subgrid edge, a no-op)
+STEP_PENALTY = 0.01   # reward cost for landing on an "empty" (proximity-0) cell
+WALL_PENALTY = 0.05   # reward cost for an illegal move (walking into the subgrid edge)
 SUCCESS_BONUS = 1.0   # terminal reward for reaching the target
 
 ACTIONS = ("left", "right", "up", "down")
@@ -32,31 +32,17 @@ State = namedtuple("State", ["x", "y", "score"])
 
 
 def set_global_seed(seed):
-    """Seed the shared random stream used by every GridEnvironment.
-
-    Call this once at the start of a training or evaluation script. Every
-    environment constructed or reset() afterward draws from this single
-    global stream, so the exact sequence of problem instances produced
-    depends only on call order, not on any seed threaded through individual
-    constructor/reset calls. Re-call with the same seed (e.g. at the start
-    of an eval script) to reproduce a run exactly.
-    """
+    """Seed the shared random stream every GridEnvironment draws from."""
     random.seed(seed)
 
 
 @contextmanager
 def temporary_seed(seed):
-    """Reseed the shared global random stream to `seed` for the duration of
-    the `with` block, then restore it exactly to whatever it was before --
-    so a deterministic aside (e.g. a fixed-seed eval pass) doesn't perturb
-    an ongoing training rollout stream's continuity.
-
-    Also what makes two different policies (e.g. a trained model vs. a
-    random baseline) play the *same* set of problem instances: wrap each
-    episode in `with temporary_seed(episode_seed):` for both, and since
-    each block starts from the same known seed, GridEnvironment() draws the
-    same origin/target/start regardless of what either policy's actions
-    consumed on a previous episode.
+    """Reseed the global random stream for the duration of the `with` block,
+    then restore the prior state. Lets an eval pass reproduce a specific
+    instance without disturbing an ongoing training rollout stream, and lets
+    two different policies replay the same episode by wrapping each in
+    `with temporary_seed(episode_seed):`.
     """
     state = random.getstate()
     random.seed(seed)
@@ -67,22 +53,15 @@ def temporary_seed(seed):
 
 
 def derive_episode_seeds(seed, n_episodes):
-    """n_episodes reproducible per-episode seeds, deterministic in `seed`.
-
-    Shared by run_eval and collect_rollouts' validation-batch path so that
-    two different callers given the same (seed, n_episodes) -- e.g. an eval
-    pass and a validation-loss pass -- wrap the same episode i in
-    `temporary_seed(result[i])` and therefore play the exact same set of
-    problem instances.
-    """
+    """n_episodes reproducible per-episode seeds, deterministic in `seed`."""
     rng = random.Random(seed)
     return [rng.randint(0, 2**31 - 1) for _ in range(n_episodes)]
 
 
 class GridEnvironment:
     """The grid-world task. Call reset() to generate a new random problem
-    instance (fresh subgrid placement and start point) for each episode.
-    Randomness comes from the shared global stream -- see set_global_seed."""
+    instance for each episode. Randomness comes from the shared global
+    stream -- see set_global_seed."""
 
     def __init__(self, grid_size=GRID_SIZE, subgrid_size=SUBGRID_SIZE,
                  score_radius=SCORE_RADIUS, max_steps=MAX_STEPS,
@@ -101,12 +80,10 @@ class GridEnvironment:
         self.reset()
 
     def reset(self):
-        """Start a new episode: a fresh random subgrid placement and start
-        point, drawn from the shared global random stream. Returns the
-        initial observation."""
-        # Choose the subgrid's origin (its bottom-left corner in global
-        # coordinates) such that the subgrid stays within the global grid
-        # AND contains the target point.
+        """Start a new episode: fresh random subgrid placement and start
+        point. Returns the initial observation."""
+        # Subgrid origin (bottom-left corner, global coords), constrained to
+        # stay in-bounds and to keep the target inside the subgrid.
         origin_min_x = max(0, self.target_global[0] - (self.subgrid_size - 1))
         origin_max_x = min(self.grid_size - self.subgrid_size, self.target_global[0])
         origin_min_y = max(0, self.target_global[1] - (self.subgrid_size - 1))
@@ -121,7 +98,6 @@ class GridEnvironment:
             self.target_global[1] - origin_y,
         )
 
-        # Random start point, excluding the target itself.
         while True:
             start = (random.randint(0, self.subgrid_size - 1), random.randint(0, self.subgrid_size - 1))
             if start != self.target_local:
@@ -133,21 +109,12 @@ class GridEnvironment:
         self.terminated = False
         self.truncated = False
 
-        # `score` is a persistent, distance-graded proximity reading (see
-        # _proximity): higher the closer the agent is to the target, the
-        # same every time a given cell is occupied. This is what the agent
-        # observes -- a "warmth" signal it can hill-climb to land exactly on
-        # the target. `reward` (the training signal, see perform_action) is
-        # kept separate from it so that a persistent observable warmth can
-        # coexist with a farm-proof reward. Before any action the reward is 0.
         self._current_score = self._proximity(self.agent_local)
         self._current_reward = 0.0
 
-        # Observation = a sliding window of the last `history_length`
-        # (x, y, score) readings, oldest first. The agent has no target
-        # info, so this recent trend is the only way it can tell whether its
-        # last move helped or hurt. Padded with the initial reading before
-        # enough real steps have happened.
+        # Observation = sliding window of the last `history_length`
+        # (x, y, score) readings, oldest first; padded with the initial
+        # reading before enough real steps have happened.
         initial_reading = State(x=self.agent_local[0], y=self.agent_local[1],
                                  score=self._current_score)
         self._history = deque([initial_reading] * self.history_length,
@@ -159,25 +126,15 @@ class GridEnvironment:
         return (x + self.origin[0], y + self.origin[1])
 
     def _distance_to_target(self, pos):
-        # Manhattan (L1) distance. Chosen over Chebyshev so that every legal
-        # (orthogonal) move changes the distance by exactly 1: there are no
-        # equidistant "plateaus" where moving toward the target leaves
-        # proximity unchanged. That guarantees a strictly-warming move always
-        # exists, so the greedy policy can follow the proximity gradient all
-        # the way onto the exact target cell (Chebyshev left the 4
-        # diagonally-adjacent cells with a zero-gradient landing step).
+        # Manhattan distance: every legal (orthogonal) move changes it by
+        # exactly 1, so a strictly-warming move always exists.
         dx = abs(pos[0] - self.target_local[0])
         dy = abs(pos[1] - self.target_local[1])
         return dx + dy
 
     def _proximity(self, pos):
-        """Persistent, distance-graded "warmth" for being at `pos`: 1.0 on
-        the target, linearly decreasing to 0 at the edge of score_radius,
-        and 0 beyond it. For score_radius=2: dist 1 -> 0.667, dist 2 ->
-        0.333. Pure function of position -- no side effects, and the same
-        cell always reads the same value (unlike the old one-time bonus), so
-        the agent's observation history carries a followable gradient toward
-        the exact target cell."""
+        """Persistent "warmth" for being at `pos`: 1.0 on the target,
+        decreasing linearly to 0 at the edge of score_radius, 0 beyond it."""
         d = self._distance_to_target(pos)
         if d == 0:
             return 1.0
@@ -186,21 +143,20 @@ class GridEnvironment:
         return 0.0
 
     def get_state(self):
-        """The policy's observation: the last `history_length` (x, y, score)
+        """The policy's observation: last `history_length` (x, y, score)
         readings, oldest first. Contains no target information."""
         return tuple(self._history)
 
     @property
     def score(self):
-        """The persistent proximity "warmth" at the current position -- what
-        the agent observes (see _proximity). This is NOT the training reward
-        (see `reward`)."""
+        """Persistent proximity "warmth" at the current position (see
+        _proximity). Not the training reward -- see `reward`."""
         return self._current_score
 
     @property
     def reward(self):
-        """The training reward for the most recent step (0 before any
-        action). See perform_action for how it's computed."""
+        """Training reward for the most recent step (0 before any action).
+        See perform_action for how it's computed."""
         return self._current_reward
 
     def is_done(self):
@@ -216,7 +172,6 @@ class GridEnvironment:
         new_x = self.agent_local[0] + dx
         new_y = self.agent_local[1] + dy
 
-        # Illegal moves (off the subgrid) are simply not performed.
         legal_move = 0 <= new_x < self.subgrid_size and 0 <= new_y < self.subgrid_size
         if legal_move:
             self.agent_local = (new_x, new_y)
@@ -229,26 +184,12 @@ class GridEnvironment:
         self.terminated = self.is_done()
         self.truncated = (not self.terminated) and (self.steps >= self.max_steps)
 
-        # Reward (kept separate from the observed proximity `score`):
-        #   - reaching the target: a flat success_bonus.
-        #   - otherwise: the CHANGE in proximity (potential-based shaping) --
-        #     positive for getting closer, negative for backing off. Because
-        #     it's a difference of a position-only potential, any loop or
-        #     lingering in the radius telescopes to ~0, so the agent cannot
-        #     farm reward by circling near the target (an effectively
-        #     infinite discount on revisits).
-        #   - plus a small step_penalty whenever the new cell is "empty"
-        #     (proximity 0, i.e. outside the radius), nudging the agent to
-        #     head toward the target region instead of wandering empty space.
-        #   - plus a wall_penalty whenever the action was illegal (walked
-        #     into the subgrid edge, a no-op) -- distinct from step_penalty
-        #     since bumping a wall wastes a move regardless of whether the
-        #     agent's (unchanged) position happens to be within the radius,
-        #     and it's what directly discourages the wall-hugging/oscillating
-        #     loops a purely position-based reward doesn't punish.
-        # terminated has no future (GAE bootstraps V=0); truncated is an
-        # artificial cutoff, so its final state is bootstrapped from the
-        # critic instead (see rollout.py).
+        # Reward: success_bonus on reaching the target; otherwise the CHANGE
+        # in proximity (potential-based shaping, so circling near the target
+        # nets ~0), minus step_penalty if the new cell is outside the radius
+        # and minus wall_penalty if the move was illegal. terminated has no
+        # future (GAE bootstraps V=0); truncated is an artificial cutoff
+        # bootstrapped from the critic instead (see rollout.py).
         if self.terminated:
             self._current_reward = self.success_bonus
         else:
@@ -261,8 +202,8 @@ class GridEnvironment:
         return self.get_state()
 
     def render(self):
-        """Print the current 8x8 subgrid. Row y=7 is printed first so that
-        the grid reads bottom-left-origin (0,0) at the bottom-left corner."""
+        """Print the current 8x8 subgrid, bottom-left-origin (0,0) at the
+        bottom-left corner."""
         lines = []
         for y in range(self.subgrid_size - 1, -1, -1):
             row = []
@@ -283,41 +224,26 @@ class GridEnvironment:
 def run_simulation(env, engine="manual", network=None):
     """Run one full episode and return the trajectory.
 
-    `env` must be constructed and configured by the caller (grid size,
-    subgrid size, score radius, max steps, etc.) -- run_simulation never
-    constructs a default environment itself. Call set_global_seed() before
-    constructing it for a reproducible run.
+    `env` must already be constructed/configured by the caller. trajectory
+    is a list of dicts: {"step", "action", "reward", "observation",
+    "terminated", "truncated", "log_prob", "value"}. The first entry has
+    action=None/reward=None and holds the initial observation.
 
-    trajectory is a list of dicts: {"step", "action", "reward",
-    "observation", "terminated", "truncated", "log_prob", "value"}. The
-    first entry has action=None and reward=None and holds the initial
-    observation (before any action is taken).
+    Each entry spans two timesteps: "action"/"log_prob"/"value" describe the
+    state the agent acted FROM; "observation"/"reward" describe the result.
+    So values[t] = entry[t+1]["value"] = V(s_t), while the observation for
+    step t is entry[t]["observation"] = s_t (see rollout.py).
 
-    "observation" is the last history_length (x, y, score) readings (what
-    the policy sees, where score is the persistent proximity warmth);
-    "reward" is env.reward for that step -- the shaped training signal,
-    distinct from the observed score (see GridEnvironment.perform_action).
-    "terminated" means the agent actually reached the
-    target; "truncated" means the episode was cut off by env.max_steps
-    without reaching it -- keeping these separate matters for GAE
-    bootstrapping (a terminated episode has V(final state) = 0, a truncated
-    one does not; note run_simulation never queries the network on the
-    final state, so a caller doing PPO training must separately call
-    network.get_value(env.get_state()) after this returns if env.truncated).
+    "terminated" means the agent reached the target (V(final)=0 for GAE);
+    "truncated" means max_steps was hit (V(final) must be bootstrapped from
+    the critic instead -- run_simulation does not do this itself).
 
-    "log_prob" and "value" are the acting policy's log-probability of the
-    chosen action and its value estimate at that step -- both None except
-    when engine="mlp_network", where they're needed to compute the PPO
-    ratio and GAE advantages later.
+    "log_prob"/"value" are set only when engine="mlp_network" (needed for
+    the PPO ratio and GAE advantages later).
 
-    `network` is only used when engine="mlp_network": any object exposing
-    `.act(observation) -> (action_index, log_prob, value, entropy)`, where
-    action_index indexes into ACTIONS (see network.ActorCritic.act). It is
-    ignored for other engines.
-
-    engine="random" picks a uniformly random action each step via the
-    shared global random stream (see set_global_seed / temporary_seed) --
-    a baseline policy that needs no network.
+    engine: "manual" prompts for input at each step; "mlp_network" drives
+    the env via `network.act(observation) -> (action_index, log_prob, value,
+    entropy)`; "random" picks uniformly via the shared global random stream.
     """
     trajectory = [{
         "step": 0, "action": None, "reward": None, "observation": env.get_state(),
@@ -346,13 +272,6 @@ def run_simulation(env, engine="manual", network=None):
             raise ValueError(f"Unknown engine: {engine!r}")
 
         observation = env.perform_action(action)
-        # NOTE: fields in this entry span two timesteps. "action", "log_prob"
-        # and "value" describe the state the agent acted FROM (s_t: log_prob
-        # and value were computed above from env.get_state() *before*
-        # perform_action). "observation" and "reward" describe the RESULT of
-        # that action (s_{t+1}). GAE/PPO consumers (see rollout.py) rely on
-        # this: values[t] = entry[t+1]["value"] = V(s_t), while the batch's
-        # observation for step t comes from entry[t]["observation"] = s_t.
         trajectory.append({
             "step": env.steps, "action": action, "reward": env.reward, "observation": observation,
             "terminated": env.terminated, "truncated": env.truncated,

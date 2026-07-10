@@ -1,20 +1,16 @@
 """Generate a fixed, categorized evaluation dataset of 100 GridEnvironment
-problem instances, for testing any checkpoint's performance broken down by
-task difficulty (see conf notes / README for how eval_fixed.py consumes it).
+problem instances (see eval_fixed_dataset.py for how it's consumed).
 
 Categories cross two axes:
-  - distance tier: short (1-4) / medium (5-8) / long (9-14) -- the Manhattan
-    distance from start to target, i.e. the optimal number of steps.
-  - target locality: central (the target sits >= score_radius from every
-    subgrid edge, so its score_radius "warmth halo" is fully unclipped) vs
-    boundary (the halo is clipped by a subgrid edge on at least one side).
+  - distance tier: short (1-4) / medium (5-8) / long (9-14) Manhattan steps
+    from start to target.
+  - target locality: central (target >= score_radius from every subgrid
+    edge, so its warmth halo is fully unclipped) vs boundary (halo clipped
+    by an edge).
 
-Reuses the existing seed-reproducibility idiom (temporary_seed +
-GridEnvironment) instead of adding an explicit-instance constructor to
-GridEnvironment: each manifest entry is a seed that, replayed through
-temporary_seed(seed) + GridEnvironment(**same grid/subgrid/radius),
-deterministically reproduces one specific problem instance -- see
-evaluation.run_eval for the same pattern.
+Each manifest entry is a seed that, replayed through temporary_seed(seed) +
+GridEnvironment(**same grid/subgrid/radius), reproduces one specific
+instance -- see eval_lib.run_eval for the same pattern.
 """
 
 import json
@@ -39,7 +35,7 @@ CATEGORY_COUNTS = {
 assert sum(CATEGORY_COUNTS.values()) == 100
 
 GENERATION_SEED = 20260709  # fixed seed for the search itself, so the manifest is reproducible
-OUTPUT_PATH = "fixed_eval_set.json"
+OUTPUT_PATH = "eval_fixed_dataset.json"
 
 
 def target_locality(target_local, subgrid_size=SUBGRID_SIZE, score_radius=SCORE_RADIUS):
@@ -60,9 +56,7 @@ def main():
     remaining = dict(CATEGORY_COUNTS)
     entries = []
     seen_seeds = set()
-    seen_instances = set()  # (origin, start_local): the state space is small enough (~64x63)
-                             # that distinct seeds regularly land on the same instance -- dedupe
-                             # on the actual instance, not just the seed.
+    seen_instances = set()  # (origin, start_local) -- dedupe on the instance, not just the seed
 
     while remaining:
         seed = rng.randint(0, 2**31 - 1)

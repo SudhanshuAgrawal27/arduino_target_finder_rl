@@ -84,8 +84,8 @@ Weights use the standard PPO init: orthogonal, gain √2 on hidden layers, gain 
 
 `run_simulation(env, engine, network)` in `simulator.py` supports `engine="manual"` (interactive) and `engine="mlp_network"` (drives the env with `network.act(observation)` each step, storing `log_prob`/`value` per step for PPO). Training and eval are separate scripts, both driven by [Hydra](https://hydra.cc) configs in `conf/`:
 
-- **[`train.py`](train.py)** — one epoch = collect `training.episodes_per_epoch` episodes serially (one `GridEnvironment` at a time, reused across episodes only in the sense that a fresh one is constructed per episode — see [`rollout.py`](rollout.py)), compute GAE per episode, flatten into one batch, run `ppo.update_epochs` passes of minibatch gradient descent ([`ppo.py`](ppo.py)), run a quick deterministic eval pass ([`evaluation.py`](evaluation.py)), then checkpoint. Uses `accelerate` for device placement, seeding (`accelerate.utils.set_seed`), and checkpointing (`accelerator.save_state`).
-- **[`eval.py`](eval.py)** — standalone: loads a checkpoint's sibling `config.yaml` to reconstruct the exact network/env architecture, loads the weights via `accelerator.load_state`, and runs deterministic evaluation episodes independently of training, with its own seed.
+- **[`train.py`](train.py)** — one epoch = collect `training.episodes_per_epoch` episodes serially (one `GridEnvironment` at a time, reused across episodes only in the sense that a fresh one is constructed per episode — see [`rollout.py`](rollout.py)), compute GAE per episode, flatten into one batch, run `ppo.update_epochs` passes of minibatch gradient descent ([`ppo.py`](ppo.py)), run a quick deterministic eval pass ([`eval_lib.py`](eval_lib.py)), then checkpoint. Uses `accelerate` for device placement, seeding (`accelerate.utils.set_seed`), and checkpointing (`accelerator.save_state`).
+- **[`eval_random.py`](eval_random.py)** — standalone: loads a checkpoint's sibling `config.yaml` to reconstruct the exact network/env architecture, loads the weights via `accelerator.load_state`, and runs deterministic evaluation episodes independently of training, with its own seed.
 
 Run with defaults (1 epoch × 1000 episodes):
 ```
@@ -97,17 +97,17 @@ python3 train.py training.num_epochs=5 ppo.learning_rate=1e-4
 ```
 Evaluate a saved checkpoint:
 ```
-python3 eval.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1 episodes=200 seed=7
+python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1 episodes=200 seed=7
 ```
 
 ### Fixed evaluation dataset
 
-`eval.py` draws fresh random episodes each run (reproducible via `seed`, but the *set* of problem instances isn't fixed across different `episodes`/`seed` choices). For comparing checkpoints against each other on identical, difficulty-labeled problems, use the fixed dataset instead:
+`eval_random.py` draws fresh random episodes each run (reproducible via `seed`, but the *set* of problem instances isn't fixed across different `episodes`/`seed` choices). For comparing checkpoints against each other on identical, difficulty-labeled problems, use the fixed dataset instead:
 
-- [`build_fixed_eval_set.py`](build_fixed_eval_set.py) generates `fixed_eval_set.json`: 100 problem instances stratified across 6 categories crossing **distance tier** (short 1–4 / medium 5–8 / long 9–14 Manhattan steps from start to target) and **target locality** (central — target's `score_radius` warmth halo is fully unclipped by the subgrid edge — vs boundary — halo clipped on at least one side). Each entry is just a seed plus its recorded category/geometry; regenerate with `python3 build_fixed_eval_set.py` (deterministic given `GENERATION_SEED`, already committed so you normally don't need to).
-- [`eval_fixed.py`](eval_fixed.py) loads a checkpoint and replays every instance in the dataset, reporting overall stats plus a per-category breakdown:
+- [`build_eval_fixed_dataset.py`](build_eval_fixed_dataset.py) generates `eval_fixed_dataset.json`: 100 problem instances stratified across 6 categories crossing **distance tier** (short 1–4 / medium 5–8 / long 9–14 Manhattan steps from start to target) and **target locality** (central — target's `score_radius` warmth halo is fully unclipped by the subgrid edge — vs boundary — halo clipped on at least one side). Each entry is just a seed plus its recorded category/geometry; regenerate with `python3 build_eval_fixed_dataset.py` (deterministic given `GENERATION_SEED`, already committed so you normally don't need to).
+- [`eval_fixed_dataset.py`](eval_fixed_dataset.py) loads a checkpoint and replays every instance in the dataset, reporting overall stats plus a per-category breakdown:
   ```
-  python3 eval_fixed.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
+  python3 eval_fixed_dataset.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
   ```
   This is what answers "is this checkpoint worse on long-distance or boundary-target problems specifically," rather than just an aggregate success rate.
 
@@ -131,7 +131,7 @@ trained_models/<run_name>/           run_name defaults to an auto timestamp; ove
 
 ### Reproducibility
 
-`train.py` calls `accelerate.utils.set_seed(cfg.seed)` once at startup, which seeds `torch`/`numpy`/`random` — and since the environment's own randomness is deliberately just `random.seed()` under the hood (see [`simulator.set_global_seed`](simulator.py)), this alone makes the entire run (rollout collection, network init, minibatch shuffling) reproducible from `cfg.seed`. Verified directly: two independent runs with the same seed produce byte-identical per-epoch metrics. `eval.py` takes its own `seed` for the same guarantee on evaluation runs, independent of whatever seed trained the checkpoint.
+`train.py` calls `accelerate.utils.set_seed(cfg.seed)` once at startup, which seeds `torch`/`numpy`/`random` — and since the environment's own randomness is deliberately just `random.seed()` under the hood (see [`simulator.set_global_seed`](simulator.py)), this alone makes the entire run (rollout collection, network init, minibatch shuffling) reproducible from `cfg.seed`. Verified directly: two independent runs with the same seed produce byte-identical per-epoch metrics. `eval_random.py` takes its own `seed` for the same guarantee on evaluation runs, independent of whatever seed trained the checkpoint.
 
 ### Core PPO formulas
 

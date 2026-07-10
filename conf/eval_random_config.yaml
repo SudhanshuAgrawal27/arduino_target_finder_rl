@@ -1,6 +1,6 @@
-# Config for the standalone eval.py. Override checkpoint_dir on the command
-# line to point at any checkpoint, e.g.:
-#   python3 eval.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
+# Config for the standalone eval_random.py. Override checkpoint_dir on the
+# command line to point at any checkpoint, e.g.:
+#   python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
 #
 # `seed` is fixed (not left to change per-run) so every checkpoint is
 # evaluated on the exact same sequence of problem instances -- that's what

@@ -1,9 +1,11 @@
 """Standalone evaluation: load a saved training checkpoint and run
-deterministic evaluation episodes independently of training.
+deterministic evaluation episodes independently of training, drawing fresh
+random episodes from a seed each time (see eval_fixed_dataset.py for
+replaying a fixed, categorized set of problem instances instead).
 
 Usage:
-    python3 eval.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
-    python3 eval.py checkpoint_dir=... episodes=200 seed=7
+    python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
+    python3 eval_random.py checkpoint_dir=... episodes=200 seed=7
 """
 
 from pathlib import Path
@@ -12,11 +14,11 @@ import hydra
 from accelerate import Accelerator
 from omegaconf import OmegaConf
 
-from evaluation import run_eval
+from eval_lib import run_eval
 from network import ActorCritic
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="eval_config")
+@hydra.main(version_base=None, config_path="conf", config_name="eval_random_config")
 def main(cfg):
     checkpoint_dir = Path(cfg.checkpoint_dir)
     run_dir = checkpoint_dir.parent

@@ -27,15 +27,15 @@ network:
   hidden_dim: 64
 
 ppo:
-  gamma: 0.99          # discount factor (standard)
-  lam: 0.95            # GAE lambda (standard)
-  clip_eps: 0.2        # PPO ratio clip range [1-clip_eps, 1+clip_eps] (standard)
-  value_coef: 0.5      # weight on the value loss term (standard)
-  entropy_coef: 0.01   # weight on the entropy bonus (standard)
-  learning_rate: 3.0e-4  # PPO default
-  update_epochs: 4     # gradient-update passes over each collected batch (standard)
+  gamma: 0.99          # discount factor
+  lam: 0.95            # GAE lambda
+  clip_eps: 0.2        # PPO ratio clip range [1-clip_eps, 1+clip_eps]
+  value_coef: 0.5      # weight on the value loss term
+  entropy_coef: 0.01   # weight on the entropy bonus
+  learning_rate: 3.0e-4
+  update_epochs: 4     # gradient-update passes over each collected batch
   minibatch_size: 256
-  max_grad_norm: 0.5   # global grad-norm clip per update step (standard PPO stability safeguard)
+  max_grad_norm: 0.5   # global grad-norm clip per update step
 
 training:
   num_epochs: 1              # one epoch = one rollout-collect + PPO-update + checkpoint cycle

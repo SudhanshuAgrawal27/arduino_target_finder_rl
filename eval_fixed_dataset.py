@@ -1,12 +1,12 @@
 """Standalone evaluation against the fixed, categorized eval dataset
-(fixed_eval_set.json, built by build_fixed_eval_set.py). Unlike eval.py,
-which draws fresh episodes from a seed range, this replays the exact same
-100 problem instances every time and reports a breakdown by difficulty
-category alongside the overall stats.
+(eval_fixed_dataset.json, built by build_eval_fixed_dataset.py). Unlike
+eval_random.py, which draws fresh episodes from a seed range, this replays
+the exact same 100 problem instances every time and reports a breakdown by
+difficulty category alongside the overall stats.
 
 Usage:
-    python3 eval_fixed.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
-    python3 eval_fixed.py checkpoint_dir=... dataset_path=fixed_eval_set.json
+    python3 eval_fixed_dataset.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
+    python3 eval_fixed_dataset.py checkpoint_dir=... dataset_path=eval_fixed_dataset.json
 """
 
 import json
@@ -16,11 +16,11 @@ import hydra
 from accelerate import Accelerator
 from omegaconf import OmegaConf
 
-from evaluation import run_eval_fixed
+from eval_lib import run_eval_fixed
 from network import ActorCritic
 
 
-@hydra.main(version_base=None, config_path="conf", config_name="eval_fixed_config")
+@hydra.main(version_base=None, config_path="conf", config_name="eval_fixed_dataset_config")
 def main(cfg):
     checkpoint_dir = Path(cfg.checkpoint_dir)
     run_dir = checkpoint_dir.parent
@@ -60,8 +60,8 @@ def main(cfg):
 
 def print_legend(dataset, printer=print):
     """Explain what each category label means, sourced from the dataset
-    manifest itself (see build_fixed_eval_set.py) so it can't drift out of
-    sync with however the categories were actually generated."""
+    manifest itself (see build_eval_fixed_dataset.py) so it can't drift out
+    of sync with however the categories were actually generated."""
     printer("Category legend:")
     printer("  distance tier (start -> target, Manhattan steps):")
     for name, (lo, hi) in dataset["distance_tiers"].items():
