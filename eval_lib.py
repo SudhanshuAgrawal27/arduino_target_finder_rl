@@ -65,6 +65,11 @@ def run_eval_fixed(env_kwargs, dataset, engine="mlp_network", model=None):
     `dataset` is the parsed eval_fixed_dataset.json dict. The seed -> instance
     mapping depends only on grid_size/subgrid_size/score_radius, so those
     three are asserted to match what the dataset was generated with.
+
+    Each summary dict reports avg_return and success_rate over all n episodes
+    in the bucket, but avg_length only over the n_solved episodes that reached
+    the target (None if none did) -- so avg_length measures path efficiency on
+    solved instances, not a mix of that and the max_steps cutoff of failures.
     """
     for key in ("grid_size", "subgrid_size", "score_radius"):
         if dataset[key] != env_kwargs[key]:
@@ -92,16 +97,25 @@ def run_eval_fixed(env_kwargs, dataset, engine="mlp_network", model=None):
             bucket["lengths"].append(len(rewards))
             bucket["successes"].append(env.terminated)
 
-    def summarize(bucket):
-        n = len(bucket["returns"])
-        return {
-            "avg_return": sum(bucket["returns"]) / n,
-            "success_rate": sum(bucket["successes"]) / n,
-            "avg_length": sum(bucket["lengths"]) / n,
-            "n": n,
-        }
-
     return {
-        "overall": summarize(overall),
-        "by_category": {category: summarize(bucket) for category, bucket in sorted(per_category.items())},
+        "overall": summarize_bucket(overall),
+        "by_category": {category: summarize_bucket(bucket) for category, bucket in sorted(per_category.items())},
+    }
+
+
+def summarize_bucket(bucket):
+    """Summary stats for one bucket of parallel per-episode lists (returns,
+    lengths, successes). avg_return and success_rate are over all n episodes,
+    but avg_length is over the n_solved that reached the target (None if none
+    did) -- so it measures path efficiency on solved instances rather than a
+    mix of that and the max_steps cutoff a failed episode always hits."""
+    n = len(bucket["returns"])
+    solved_lengths = [length for length, ok in zip(bucket["lengths"], bucket["successes"]) if ok]
+    n_solved = len(solved_lengths)
+    return {
+        "avg_return": sum(bucket["returns"]) / n,
+        "success_rate": sum(bucket["successes"]) / n,
+        "avg_length": (sum(solved_lengths) / n_solved) if n_solved else None,
+        "n": n,
+        "n_solved": n_solved,
     }

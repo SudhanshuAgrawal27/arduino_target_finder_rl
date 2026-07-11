@@ -27,8 +27,10 @@ def main(cfg):
     train_cfg = OmegaConf.load(run_dir / "config.yaml")
 
     model = ActorCritic(
-        history_length=train_cfg.env.history_length,
+        # older checkpoints predate these fields; they used the full history and 2 layers
+        window_length=train_cfg.network.get("window_length", train_cfg.env.history_length),
         hidden_dim=train_cfg.network.hidden_dim,
+        num_layers=train_cfg.network.get("num_layers", 2),
         subgrid_size=train_cfg.env.subgrid_size,
     )
     accelerator = Accelerator()
@@ -74,16 +76,20 @@ def print_legend(dataset, printer=print):
 
 def print_report(stats, printer=print):
     """Overall + per-category stats as an aligned table (rather than raw
-    key=value dumps) so rows are easy to scan and compare."""
-    columns = ["Category", "Avg Return", "Success Rate", "Avg Length", "N"]
-    printer(f"{columns[0]:<20}{columns[1]:>12}{columns[2]:>14}{columns[3]:>12}{columns[4]:>6}")
+    key=value dumps) so rows are easy to scan and compare. Avg Length is over
+    solved episodes only (blank when a bucket solved none)."""
+    columns = ["Category", "Avg Return", "Success Rate", "Avg Length*", "N"]
+    printer(f"{columns[0]:<20}{columns[1]:>12}{columns[2]:>14}{columns[3]:>13}{columns[4]:>6}")
 
     def row(name, s):
-        printer(f"{name:<20}{s['avg_return']:>12.3f}{s['success_rate']:>14.3f}{s['avg_length']:>12.1f}{s['n']:>6d}")
+        avg_length = f"{s['avg_length']:.1f}" if s["avg_length"] is not None else "-"
+        printer(f"{name:<20}{s['avg_return']:>12.3f}{s['success_rate']:>14.3f}{avg_length:>13}{s['n']:>6d}")
 
     row("OVERALL", stats["overall"])
     for category, s in stats["by_category"].items():
         row(category.replace("/", " / "), s)
+    printer("")
+    printer("* Avg Length is averaged over solved episodes only (those reaching the target).")
 
 
 if __name__ == "__main__":

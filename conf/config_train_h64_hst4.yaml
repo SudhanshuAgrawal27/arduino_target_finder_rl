@@ -26,9 +26,8 @@ env:
   success_bonus: 1.0     # terminal reward for reaching the target
 
 network:
-  hidden_dim: 128
+  hidden_dim: 64
   window_length: 4  # how many of env.history_length's most recent readings the network consumes; must be <= it
-  num_layers: 2      # number of hidden Linear+ReLU blocks in the shared trunk
 
 ppo:
   gamma: 0.99            # discount factor
@@ -49,7 +48,7 @@ training:
 
 output:
   base_dir: trained_models
-  run_name: null  # timestamp is always prepended; null = timestamp alone, else timestamp_<run_name>
+  run_name: null  # null = auto timestamp; set to name a run explicitly
 
 wandb:
   project: grid-search-rl

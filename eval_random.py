@@ -25,8 +25,10 @@ def main(cfg):
     train_cfg = OmegaConf.load(run_dir / "config.yaml")
 
     model = ActorCritic(
-        history_length=train_cfg.env.history_length,
+        # older checkpoints predate these fields; they used the full history and 2 layers
+        window_length=train_cfg.network.get("window_length", train_cfg.env.history_length),
         hidden_dim=train_cfg.network.hidden_dim,
+        num_layers=train_cfg.network.get("num_layers", 2),
         subgrid_size=train_cfg.env.subgrid_size,
     )
     accelerator = Accelerator()

@@ -58,7 +58,15 @@ def _env_kwargs(cfg):
 def main(cfg):
     _load_dotenv()
 
-    run_name = cfg.output.run_name or datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if cfg.network.window_length > cfg.env.history_length:
+        raise ValueError(
+            f"network.window_length ({cfg.network.window_length}) cannot exceed "
+            f"env.history_length ({cfg.env.history_length}) -- the network can't see "
+            f"more history than the environment produces."
+        )
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_name = f"{timestamp}_{cfg.output.run_name}" if cfg.output.run_name else timestamp
     run_dir = Path(cfg.output.base_dir) / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
     OmegaConf.save(cfg, run_dir / "config.yaml")
@@ -85,8 +93,9 @@ def main(cfg):
     accelerator = Accelerator()
 
     model = ActorCritic(
-        history_length=cfg.env.history_length,
+        window_length=cfg.network.window_length,
         hidden_dim=cfg.network.hidden_dim,
+        num_layers=cfg.network.num_layers,
         subgrid_size=cfg.env.subgrid_size,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.ppo.learning_rate)

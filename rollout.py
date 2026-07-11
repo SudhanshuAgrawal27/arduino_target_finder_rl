@@ -50,7 +50,9 @@ def collect_rollouts(env_kwargs, model, n_episodes, gamma, lam, episode_seeds=No
         advantages, returns = compute_gae(rewards, values, bootstrap_value, gamma, lam)
 
         for t in range(n_steps):
-            obs_list.append(obs_to_tensor(trajectory[t]["observation"], subgrid_size=env.subgrid_size))
+            obs_list.append(obs_to_tensor(
+                trajectory[t]["observation"], subgrid_size=env.subgrid_size, window_length=model.window_length
+            ))
             action_list.append(ACTIONS.index(trajectory[t + 1]["action"]))
             log_prob_list.append(trajectory[t + 1]["log_prob"])
         advantage_list.extend(advantages)

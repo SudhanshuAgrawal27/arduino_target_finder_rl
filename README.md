@@ -69,14 +69,16 @@ pytest test_simulator.py -v
 
 ## Network
 
-[`network.py`](network.py) — `ActorCritic`, a shared-trunk MLP over the fixed observation window:
+[`network.py`](network.py) — `ActorCritic`, a shared-trunk MLP over a (possibly trimmed) observation window:
 
 ```
-input: flattened (x, y, score) × history_length = 12 floats, x/y normalized to [0,1]
-  → Linear(12→64) → ReLU → Linear(64→64) → ReLU
+input: flattened (x, y, score) × window_length = 12 floats (window_length=4), x/y normalized to [0,1]
+  → Linear(12→64) → ReLU → Linear(64→64) → ReLU → ... (num_layers hidden blocks)
     ├─ policy head: Linear(64→4)  (action logits)
     └─ value head:  Linear(64→1)  (scalar state value)
 ```
+
+`window_length` (`network.window_length`, e.g. via `python3 train.py network.window_length=2`) is independent of the environment's `history_length`: the environment can produce a longer history than the network actually consumes, in which case only the most recent `window_length` readings are fed in (see `obs_to_tensor`). Must be `<= env.history_length`; `train.py` checks this at startup. `num_layers` (`network.num_layers`, default 2) controls how many hidden `Linear(hidden_dim→hidden_dim) → ReLU` blocks the trunk has (the first block is `Linear(window_length×3→hidden_dim)`), for trading network depth against width. All three of `hidden_dim`, `window_length`, and `num_layers` are plain Hydra config fields, overridable from the command line same as any other (e.g. `network.hidden_dim=32 network.num_layers=3`).
 
 Weights use the standard PPO init: orthogonal, gain √2 on hidden layers, gain 1 on the value head, and a small gain (0.01) on the policy head so the initial policy starts close to uniform. `act()` samples an action (used during rollout collection); `act_deterministic()` picks the argmax action (used for eval); `get_value()` returns just the critic's estimate (used to bootstrap GAE at a truncated episode's end); `evaluate_actions()` recomputes log-probs/values/entropy under the current parameters with gradients (used during the PPO update).
 

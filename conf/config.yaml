@@ -25,6 +25,8 @@ env:
 
 network:
   hidden_dim: 64
+  window_length: 4  # how many of env.history_length's most recent readings the network consumes; must be <= it
+  num_layers: 2      # number of hidden Linear+ReLU blocks in the shared trunk
 
 ppo:
   gamma: 0.99          # discount factor
@@ -45,7 +47,7 @@ training:
 
 output:
   base_dir: trained_models
-  run_name: null  # null = auto timestamp (e.g. 2026-07-06_14-30-05); set to name a run explicitly
+  run_name: null  # timestamp is always prepended; null = timestamp alone, else timestamp_<run_name>
 
 wandb:
   project: grid-search-rl

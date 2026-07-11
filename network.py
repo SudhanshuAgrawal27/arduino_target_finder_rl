@@ -14,10 +14,14 @@ N_ACTIONS = len(ACTIONS)
 FEATURES_PER_STEP = 3  # x, y, score
 
 
-def obs_to_tensor(observation, subgrid_size=SUBGRID_SIZE):
-    """Flatten a history_length-long tuple of State(x, y, score) readings
-    into one input vector, oldest first. x/y normalized to [0, 1]; score is
-    already in [0, 1]."""
+def obs_to_tensor(observation, subgrid_size=SUBGRID_SIZE, window_length=None):
+    """Flatten a tuple of State(x, y, score) readings into one input vector,
+    oldest first. `window_length` keeps only the most recent readings
+    (default: all of them) -- lets the network see fewer steps than the
+    environment's history_length actually produces. x/y normalized to
+    [0, 1]; score is already in [0, 1]."""
+    if window_length is not None:
+        observation = observation[-window_length:]
     scale = max(subgrid_size - 1, 1)
     features = []
     for reading in observation:
@@ -34,30 +38,32 @@ class ActorCritic(nn.Module):
     """Shared-trunk MLP over the fixed observation window, with a policy
     head (action logits) and a value head (scalar state value)."""
 
-    def __init__(self, history_length=HISTORY_LENGTH, hidden_dim=64, n_actions=N_ACTIONS,
-                 subgrid_size=SUBGRID_SIZE):
+    def __init__(self, window_length=HISTORY_LENGTH, hidden_dim=64, n_actions=N_ACTIONS,
+                 subgrid_size=SUBGRID_SIZE, num_layers=2):
         super().__init__()
         self.subgrid_size = subgrid_size
-        input_dim = history_length * FEATURES_PER_STEP
-        self.trunk = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-        )
+        self.window_length = window_length
+        self.num_layers = num_layers
+        input_dim = window_length * FEATURES_PER_STEP
+
+        layers = []
+        for i in range(num_layers):
+            layers.append(nn.Linear(input_dim if i == 0 else hidden_dim, hidden_dim))
+            layers.append(nn.ReLU())
+        self.trunk = nn.Sequential(*layers)
         self.policy_head = nn.Linear(hidden_dim, n_actions)
         self.value_head = nn.Linear(hidden_dim, 1)
 
         # Standard PPO init: gain sqrt(2) on hidden layers, gain 1 on the
         # value head, small gain (0.01) on the policy head so the initial
         # policy starts close to uniform.
-        _orthogonal_init(self.trunk[0], gain=2 ** 0.5)
-        _orthogonal_init(self.trunk[2], gain=2 ** 0.5)
+        for linear in self.trunk[0::2]:
+            _orthogonal_init(linear, gain=2 ** 0.5)
         _orthogonal_init(self.value_head, gain=1.0)
         _orthogonal_init(self.policy_head, gain=0.01)
 
     def forward(self, obs):
-        """obs: tensor of shape (history_length * 3,) or (batch, history_length * 3).
+        """obs: tensor of shape (window_length * 3,) or (batch, window_length * 3).
         Returns (logits, value)."""
         features = self.trunk(obs)
         logits = self.policy_head(features)
@@ -65,11 +71,14 @@ class ActorCritic(nn.Module):
         return logits, value
 
     def _forward_single(self, observation):
-        """Run the network on one raw observation (a history_length-long
-        tuple of State readings) under no_grad, returning (logits, value)
-        with the batch dim removed."""
+        """Run the network on one raw observation (a tuple of State readings,
+        possibly longer than window_length -- only the trailing window_length
+        of them are used) under no_grad, returning (logits, value) with the
+        batch dim removed."""
         with torch.no_grad():
-            obs_tensor = obs_to_tensor(observation, subgrid_size=self.subgrid_size).to(self._device())
+            obs_tensor = obs_to_tensor(
+                observation, subgrid_size=self.subgrid_size, window_length=self.window_length
+            ).to(self._device())
             logits, value = self.forward(obs_tensor.unsqueeze(0))
             return logits.squeeze(0), value.squeeze(0)
 
@@ -112,7 +121,7 @@ class ActorCritic(nn.Module):
         returned log_probs form the ratio r_t(theta) = exp(new_log_prob -
         old_log_prob).
 
-        obs_batch: tensor (N, history_length * 3). action_batch: tensor (N,)
+        obs_batch: tensor (N, window_length * 3). action_batch: tensor (N,)
         of integer action indices. Returns (log_probs, values, entropy),
         each shape (N,).
         """
