@@ -124,16 +124,35 @@ It's CPU-pinned on purpose: the network is a tiny 12→64→64 MLP, so the GPU b
 ### Output layout
 
 ```
-trained_models/<run_name>/           run_name defaults to an auto timestamp; override via output.run_name
-├── config.yaml                      the fully-resolved Hydra config for this run
+trained_models/<run_name>_seed<seed>/   one dir per (run, seed); name = [timestamp_]<output.run_name>_seed<seed>
+├── config.yaml                      fully-resolved Hydra config for this run, plus seed_used
 ├── epoch_1/                         accelerate checkpoint (model.safetensors, optimizer.bin, random_states)
 ├── epoch_2/
 └── ...
 ```
 
+### Seeds and multi-seed runs
+
+Training is seeded per-run from `cfg.seeds` (a list, default `[42, 43, 44]`): `train.py` trains one model per seed, each into its own `..._seed<seed>` directory, so a single invocation produces a whole multi-seed ablation point. Override to one seed for parallel launching (`seeds=[43]`). `output.timestamp` (default `true`) prepends a timestamp; set it `false` for a deterministic, restart-skippable directory name.
+
+PPO is high-variance across seeds — different seeds land in different behavioral basins — so a *single* run's success rate can under- or over-state an architecture by several points. Reporting ≥3 seeds is what makes an architecture comparison trustworthy.
+
+**Init-seed isolation.** Orthogonal init consumes a *width/depth-dependent* number of `torch` draws, which would otherwise leave the downstream exploration-sampling and minibatch-shuffle RNG at an architecture-dependent offset — so "the same seed" wouldn't actually be a controlled comparison across architectures. `train.py` re-seeds `torch` with `torch.manual_seed(seed)` immediately after building the model, making that downstream stream depend only on `seed`: two architectures at the same seed then see identical exploration/shuffle noise, while different seeds still vary the whole run (init included). See the tests in [`test_network.py`](test_network.py).
+
+### Running the architecture ablation
+
+[`run_ablation.py`](run_ablation.py) trains every (architecture, seed) combination — the nine `conf/config_train_h*_l*_hist*.yaml` configs × seeds `{42, 43, 44}` — a fixed number at a time, skipping any whose `epoch_150` checkpoint already exists (safe to restart):
+
+```
+python3 run_ablation.py --dry-run          # list the jobs
+python3 run_ablation.py --parallel 4       # 4 concurrent, 2 threads each (CPU-pinned)
+```
+
+New fixed-code runs land in `<arch>_seed<seed>/`; the earlier pre-init-fix runs are kept under the `_s<seed>` suffix so the two never collide.
+
 ### Reproducibility
 
-`train.py` calls `accelerate.utils.set_seed(cfg.seed)` once at startup, which seeds `torch`/`numpy`/`random` — and since the environment's own randomness is deliberately just `random.seed()` under the hood (see [`simulator.set_global_seed`](simulator.py)), this alone makes the entire run (rollout collection, network init, minibatch shuffling) reproducible from `cfg.seed`. Verified directly: two independent runs with the same seed produce byte-identical per-epoch metrics. `eval_random.py` takes its own `seed` for the same guarantee on evaluation runs, independent of whatever seed trained the checkpoint.
+`train_one_seed` calls `accelerate.utils.set_seed(seed)` (seeding `torch`/`numpy`/`random`) plus `simulator.set_global_seed(seed)` for the env's `random` stream, then applies the init-seed isolation above. Episode geometry, rollout collection, and minibatch shuffling are all reproducible from `seed`. `eval_random.py` takes its own `seed` for the same guarantee on evaluation runs, independent of whatever seed trained the checkpoint.
 
 ### Core PPO formulas
 

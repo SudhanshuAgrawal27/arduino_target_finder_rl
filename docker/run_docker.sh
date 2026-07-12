@@ -39,6 +39,25 @@ touch "$PERSIST_DIR/claude.json"
 # Remove stale container if it exists
 docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
 
+# Pass the Arduino's serial device through if it's attached to WSL (via
+# usbipd-win) at container-start time. Absent means plain training runs
+# still work without any Arduino connected.
+DEVICE_ARGS=()
+for dev in /dev/ttyUSB0 /dev/ttyACM0; do
+    [[ -e "$dev" ]] && DEVICE_ARGS+=(--device="$dev")
+done
+
+# Wildcard cgroup rule for USB-serial (major 188, ttyUSB*) and USB CDC-ACM
+# (major 166, ttyACM*) devices. This lets a device be reattached later
+# (after a driver reinstall / usbipd re-attach) without recreating the
+# container: just `usbipd attach` on the host, then inside the container
+#   mknod /dev/ttyUSB0 c 188 0 && chmod 666 /dev/ttyUSB0
+# (adjust the minor number to match `ls -l /dev/ttyUSB0` on the host).
+DEVICE_CGROUP_ARGS=(
+    --device-cgroup-rule='c 188:* rmw'
+    --device-cgroup-rule='c 166:* rmw'
+)
+
 docker run -d \
     --name "$CONTAINER_NAME" \
     --gpus all \
@@ -51,6 +70,8 @@ docker run -d \
     --ulimit memlock=-1 \
     --ulimit stack=67108864 \
     -p "$SSH_PORT":22 \
+    "${DEVICE_ARGS[@]}" \
+    "${DEVICE_CGROUP_ARGS[@]}" \
     "$IMAGE" \
     bash -c "/usr/sbin/sshd && sleep infinity"
 
@@ -102,3 +123,8 @@ echo "  Workspace : /workspace → $WORKSPACE"
 echo "  SSH port  : $SSH_PORT"
 echo ""
 echo "Connect: VS Code → Remote-SSH: Connect to Host → $CONTAINER_NAME"
+echo ""
+echo "If the Arduino's USB-serial device drops later (driver reinstall,"
+echo "unplug/replug), you don't need to recreate this container — from the"
+echo "host WSL terminal run:"
+echo "  bash docker/reconnect_usb.sh $CONTAINER_NAME"
