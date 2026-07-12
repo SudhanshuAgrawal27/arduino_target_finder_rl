@@ -1,7 +1,12 @@
 """PPO training loop for the grid-search environment.
 
-Usage:
-    python3 train.py
+Trains one model per seed in cfg.seeds (default [42, 43, 44]), each into its
+own run directory, so a single invocation produces a multi-seed ablation
+point. Override to a single seed for parallel per-(config, seed) launching:
+
+    python3 train.py                                  # all of cfg.seeds
+    python3 train.py --config-name config_train_h96_l2_hist4
+    python3 train.py --config-name config_train_h96_l2_hist4 seeds=[43]
     python3 train.py training.num_epochs=5 ppo.learning_rate=1e-4
 """
 
@@ -54,6 +59,20 @@ def _env_kwargs(cfg):
     )
 
 
+def _run_name(cfg, timestamp, seed):
+    """<timestamp>_<run_name>_seed<seed>, with each piece optional. The
+    timestamp is dropped when output.timestamp is false, giving a
+    deterministic per-(config, seed) directory the launcher can skip if it's
+    already complete."""
+    parts = []
+    if cfg.output.get("timestamp", True):
+        parts.append(timestamp)
+    if cfg.output.run_name:
+        parts.append(str(cfg.output.run_name))
+    parts.append(f"seed{seed}")
+    return "_".join(parts)
+
+
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg):
     _load_dotenv()
@@ -65,11 +84,24 @@ def main(cfg):
             f"more history than the environment produces."
         )
 
+    seeds = list(cfg.seeds) if OmegaConf.is_list(cfg.seeds) else [cfg.seeds]
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_name = f"{timestamp}_{cfg.output.run_name}" if cfg.output.run_name else timestamp
+    for seed in seeds:
+        train_one_seed(cfg, seed, timestamp)
+
+
+def train_one_seed(cfg, seed, timestamp):
+    """Train a single model at `seed` and checkpoint every epoch into its own
+    run directory."""
+    run_name = _run_name(cfg, timestamp, seed)
     run_dir = Path(cfg.output.base_dir) / run_name
     run_dir.mkdir(parents=True, exist_ok=True)
-    OmegaConf.save(cfg, run_dir / "config.yaml")
+
+    # Persist the fully-resolved config plus the exact seed this run used, so
+    # eval scripts can reconstruct the architecture and the run is traceable.
+    run_cfg = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
+    run_cfg.seed_used = seed
+    OmegaConf.save(run_cfg, run_dir / "config.yaml")
 
     # mode="online" requires `wandb login` to have already been run once.
     run = wandb.init(
@@ -77,18 +109,18 @@ def main(cfg):
         name=run_name,
         dir=str(run_dir),
         mode=cfg.wandb.mode,
-        config=OmegaConf.to_container(cfg, resolve=True),
+        config=OmegaConf.to_container(run_cfg, resolve=True),
+        reinit=True,
     )
     print(f"wandb run: {run.url}")
     workspace_url_file = Path(__file__).parent / "conf" / "wandb_workspace_url.txt"
     if workspace_url_file.exists():
         print(f"wandb combined train/eval/baseline view: {workspace_url_file.read_text().strip()}")
 
-    # accelerate's set_seed covers torch/numpy/random; the env's own
-    # set_env_seed is redundant (it just seeds `random` too) but keeps the
-    # env's reproducibility contract explicit.
-    set_seed(cfg.seed)
-    set_env_seed(cfg.seed)
+    # accelerate's set_seed covers torch/numpy/random; set_env_seed re-seeds
+    # the env's `random` stream so episode geometry is reproducible from seed.
+    set_seed(seed)
+    set_env_seed(seed)
 
     accelerator = Accelerator()
 
@@ -98,6 +130,15 @@ def main(cfg):
         num_layers=cfg.network.num_layers,
         subgrid_size=cfg.env.subgrid_size,
     )
+    # Isolate model-init RNG: orthogonal init consumes a width/depth-dependent
+    # number of torch draws, which would otherwise leave the downstream
+    # exploration-sampling and minibatch-shuffle stream at an
+    # architecture-dependent offset. Re-seeding torch here makes that stream
+    # depend only on `seed`, so two architectures at the same seed see
+    # identical exploration/shuffle noise (a controlled comparison) while
+    # different seeds still vary the whole run (init included).
+    torch.manual_seed(seed)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=cfg.ppo.learning_rate)
     model, optimizer = accelerator.prepare(model, optimizer)
     # Linear LR decay to 10% of the initial rate, stepped once per epoch, to
@@ -112,7 +153,7 @@ def main(cfg):
 
     env_kwargs = _env_kwargs(cfg)
 
-    accelerator.print(f"Run directory: {run_dir}")
+    accelerator.print(f"Run directory: {run_dir} (seed {seed})")
 
     for epoch in range(1, cfg.training.num_epochs + 1):
         model.train()

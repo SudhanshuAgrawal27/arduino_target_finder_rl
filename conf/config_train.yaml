@@ -13,7 +13,7 @@ hydra:
     dir: .              # we manage our own run directory (trained_models/<run_name>/)
   output_subdir: null
 
-seed: 42
+seeds: [42, 43, 44]  # train one model per seed; overridable, e.g. seeds=[43]
 
 env:
   grid_size: 16
@@ -49,7 +49,8 @@ training:
 
 output:
   base_dir: trained_models
-  run_name: null  # timestamp is always prepended; null = timestamp alone, else timestamp_<run_name>
+  run_name: null       # dir = [timestamp_]<run_name>_seed<seed>; null drops the run_name piece
+  timestamp: true      # prepend a timestamp to the dir; set false for deterministic (skippable) names
 
 wandb:
   project: grid-search-rl
