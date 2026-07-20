@@ -247,7 +247,7 @@ def run_simulation(env, engine="manual", network=None, on_step=None):
 
     on_step: optional callback invoked with `env` once for the initial state
     and once after every action -- lets a caller mirror the episode
-    somewhere else (e.g. eval_demo.py driving the physical LED matrix)
+    somewhere else (e.g. eval_demo_8-8.py driving the physical LED matrix)
     without run_simulation itself knowing anything about that destination.
     """
     trajectory = [{

@@ -1,6 +1,6 @@
-# Config for eval_demo.py -- runs a single demo episode from a chosen
+# Config for eval_demo_8-8.py -- runs a single demo episode from a chosen
 # checkpoint while mirroring target/agent/trail onto the physical LED matrix.
-#   python3 eval_demo.py
+#   python3 eval_demo_8-8.py
 # Override checkpoint_dir/seed to demo a different run/episode.
 
 defaults:

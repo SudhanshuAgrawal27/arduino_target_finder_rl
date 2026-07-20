@@ -115,9 +115,9 @@ python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
 
 ### LED matrix demo
 
-[`eval_demo.py`](eval_demo.py) runs one episode from a checkpoint and mirrors the target/agent/trail live onto a physical 8x8 LED matrix, via `simulator.run_simulation`'s `on_step` callback:
+[`eval_demo_8-8.py`](eval_demo_8-8.py) runs one episode from a checkpoint and mirrors the target/agent/trail live onto a physical 8x8 LED matrix, via `simulator.run_simulation`'s `on_step` callback:
 ```
-python3 eval_demo.py checkpoint_dir=... seed=7
+python3 eval_demo_8-8.py checkpoint_dir=... seed=7
 ```
 See [`arduino/README.md`](arduino/README.md) for the LED hardware/firmware side and the WSL2/Docker USB setup this needs.
 
