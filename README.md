@@ -113,6 +113,14 @@ python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
   ```
   This is what answers "is this checkpoint worse on long-distance or boundary-target problems specifically," rather than just an aggregate success rate.
 
+### LED matrix demo
+
+[`eval_demo.py`](eval_demo.py) runs one episode from a checkpoint and mirrors the target/agent/trail live onto a physical 8x8 LED matrix, via `simulator.run_simulation`'s `on_step` callback:
+```
+python3 eval_demo.py checkpoint_dir=... seed=7
+```
+See [`arduino/README.md`](arduino/README.md) for the LED hardware/firmware side and the WSL2/Docker USB setup this needs.
+
 ### Accelerate config
 
 Running `python3 train.py` directly is fine — `Accelerator()` auto-detects the machine (single process, GPU if present). For an explicit, version-controlled setup, [`conf/accelerate.yaml`](conf/accelerate.yaml) pins a single-process, CPU-only run and is passed via `accelerate launch`:

@@ -221,7 +221,7 @@ class GridEnvironment:
         print("\n".join(lines))
 
 
-def run_simulation(env, engine="manual", network=None):
+def run_simulation(env, engine="manual", network=None, on_step=None):
     """Run one full episode and return the trajectory.
 
     `env` must already be constructed/configured by the caller. trajectory
@@ -244,12 +244,20 @@ def run_simulation(env, engine="manual", network=None):
     engine: "manual" prompts for input at each step; "mlp_network" drives
     the env via `network.act(observation) -> (action_index, log_prob, value,
     entropy)`; "random" picks uniformly via the shared global random stream.
+
+    on_step: optional callback invoked with `env` once for the initial state
+    and once after every action -- lets a caller mirror the episode
+    somewhere else (e.g. eval_demo.py driving the physical LED matrix)
+    without run_simulation itself knowing anything about that destination.
     """
     trajectory = [{
         "step": 0, "action": None, "reward": None, "observation": env.get_state(),
         "terminated": env.terminated, "truncated": env.truncated,
         "log_prob": None, "value": None,
     }]
+
+    if on_step is not None:
+        on_step(env)
 
     if engine == "manual":
         print("Initial board:")
@@ -277,6 +285,9 @@ def run_simulation(env, engine="manual", network=None):
             "terminated": env.terminated, "truncated": env.truncated,
             "log_prob": log_prob, "value": value,
         })
+
+        if on_step is not None:
+            on_step(env)
 
         if engine == "manual":
             print(f"\nAfter action '{action}':")

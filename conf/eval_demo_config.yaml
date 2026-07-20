@@ -1,0 +1,21 @@
+# Config for eval_demo.py -- runs a single demo episode from a chosen
+# checkpoint while mirroring target/agent/trail onto the physical LED matrix.
+#   python3 eval_demo.py
+# Override checkpoint_dir/seed to demo a different run/episode.
+
+defaults:
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: disabled
+  - _self_
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+checkpoint_dir: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
+seed: 42
+
+led_port: /dev/ttyUSB0
+led_baud: 115200
+step_delay_seconds: 1.0
