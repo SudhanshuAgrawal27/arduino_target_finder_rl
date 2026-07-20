@@ -32,4 +32,24 @@ bool ledBoardSetFrame(const uint8_t rows[8]) {
   return true;
 }
 
+bool ledBoardSetRow(int y, uint8_t r, uint8_t g, uint8_t b) {
+  if (y < 0 || y > 7) {
+    return false;
+  }
+  // Monochrome -- no color, so any non-black value just means "on" for the
+  // whole row.
+  lc.setRow(0, y, (r || g || b) ? 0xFF : 0x00);
+  return true;
+}
+
+bool ledBoardSetPixelColor(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
+  if (x < 0 || x > 7 || y < 0 || y > 7) {
+    return false;
+  }
+  // Monochrome -- no color, so any non-black value just means "on".
+  lc.clearDisplay(0);
+  lc.setLed(0, y, x, (r || g || b));
+  return true;
+}
+
 #endif // ACTIVE_BOARD == BOARD_MAX7219_MATRIX

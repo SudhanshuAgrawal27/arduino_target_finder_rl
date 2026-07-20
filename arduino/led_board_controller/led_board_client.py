@@ -28,3 +28,18 @@ def set_frame(ser, points):
             rows[y] |= 1 << x
     ser.write(("F:" + ",".join(str(r) for r in rows) + "\n").encode())
     return ser.readline().decode().strip()
+
+
+def set_row(ser, y, r, g, b):
+    """Light row `y` the solid color (r, g, b), leaving every other row as
+    it was (doesn't clear the board) -- so calling this once per row builds
+    up a multi-row pattern across several calls."""
+    ser.write(f"R:{y},{r},{g},{b}\n".encode())
+    return ser.readline().decode().strip()
+
+
+def set_pixel_color(ser, x, y, r, g, b):
+    """Light a single pixel (x, y) the color (r, g, b), clearing everything
+    else first -- the colored equivalent of set_led."""
+    ser.write(f"P:{x},{y},{r},{g},{b}\n".encode())
+    return ser.readline().decode().strip()

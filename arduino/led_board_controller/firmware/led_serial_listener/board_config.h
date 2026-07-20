@@ -7,5 +7,6 @@
 // all driver files live in this same sketch folder.
 
 #define BOARD_MAX7219_MATRIX 1
+#define BOARD_WS2812B_MATRIX 2
 
-#define ACTIVE_BOARD BOARD_MAX7219_MATRIX
+#define ACTIVE_BOARD BOARD_WS2812B_MATRIX
