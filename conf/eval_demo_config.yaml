@@ -1,6 +1,8 @@
-# Config for eval_demo_8-8.py -- runs a single demo episode from a chosen
-# checkpoint while mirroring target/agent/trail onto the physical LED matrix.
+# Shared config for eval_demo_8-8.py and eval_demo_16-16.py -- each runs a
+# single demo episode from a chosen checkpoint while mirroring it live onto
+# the corresponding physical LED matrix.
 #   python3 eval_demo_8-8.py
+#   python3 eval_demo_16-16.py
 # Override checkpoint_dir/seed to demo a different run/episode.
 
 defaults:
@@ -14,8 +16,19 @@ hydra:
   output_subdir: null
 
 checkpoint_dir: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
-seed: 42
+seed: 27
 
 led_port: /dev/ttyUSB0
 led_baud: 115200
 step_delay_seconds: 1.0
+
+# eval_demo_16-16.py only: how far outside the subgrid (in global-board
+# cells) the blinking boundary outline is drawn, so it doesn't overlap the
+# playable area itself.
+boundary_margin: 1
+
+# eval_demo_16-16.py only: run the checkpoint/episode exactly as normal but
+# never open led_port or send any frames -- just print the same success/
+# power summary as a real run would. Lets you check the outcome and power
+# budget without any hardware attached.
+dry_run: false

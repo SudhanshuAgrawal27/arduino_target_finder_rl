@@ -17,13 +17,98 @@ constexpr bool kSerpentine = true;  // most 16x16 WS2812B panels wire alternate 
 // can supply. Raise only with an adequate external 5V supply.
 constexpr uint8_t kBrightness = 40;
 
+// Fixed per-role colors for the eval_demo_16-16 grid-search display (see
+// ledBoardSetEpisodeLayer/ledBoardSetDynamicLayer). Chosen dim on purpose:
+// with kBrightness=40 already capping the whole strip, these keep the
+// *relative* mix between simultaneously-lit roles readable (agent clearly
+// brighter than its trail; boundary/target dim enough to read as
+// "background" next to the agent) without depending on per-pixel
+// brightness, which NeoPixel doesn't support -- only strip.setBrightness()
+// as a single global scalar.
+constexpr uint8_t kAgentR = 255, kAgentG = 0, kAgentB = 0;      // full red
+constexpr uint8_t kTrailR = 15, kTrailG = 0, kTrailB = 0;       // dim red
+constexpr uint8_t kBoundaryR = 0, kBoundaryG = 20, kBoundaryB = 0;  // dim green
+constexpr uint8_t kTargetR = 0, kTargetG = 0, kTargetB = 60;    // dim blue
+
+// ~33Hz full on/off cycle (50% duty, same as before -- see
+// power_model.py's BLINK_DUTY_CYCLE, which doesn't depend on this
+// constant, so this change doesn't move the average-current estimate at
+// all) for the episode layer (boundary + target) and trail. The original
+// ~33Hz was well below typical flicker-fusion thresholds and read as
+// distinct flashing rather than a steady dim glow.
+//
+// Deliberately NOT pushed higher than this: render() itself takes a fixed
+// ~7.7ms to bit-bang all 256 pixels, with interrupts disabled the whole
+// time (see ledBoardTick's comment). At this half-period, that's ~51% of
+// each cycle -- already a real cut into the "quiet" window the E:/D:
+// corruption fixes rely on. Going much faster (e.g. a half-period near
+// 7.7ms) would push that toward ~100%, making every serial command
+// collide with a render almost by default and lean entirely on retries
+// rather than mostly avoiding the problem.
+constexpr unsigned long kBlinkHalfPeriodMs = 15;
+
 Adafruit_NeoPixel strip(kWidth * kHeight, kDataPin, NEO_GRB + NEO_KHZ800);
+
+// Retained state for the two layers set by ledBoardSetEpisodeLayer/
+// ledBoardSetDynamicLayer, composited together on every render() -- see
+// led_board_driver.h for why these are separate calls (episode layer is
+// set once per episode, dynamic layer once per step; both feed the same
+// ~33Hz blink cycle except for the agent, which always stays lit).
+LedPoint boundaryPoints[kMaxBoundaryPoints];
+int boundaryCount = 0;
+LedPoint targetPoint = {-1, -1};
+bool hasTarget = false;
+
+LedPoint trailPoints[kMaxTrailPoints];
+int trailCount = 0;
+LedPoint agentPoint = {-1, -1};
+bool hasAgent = false;
+
+bool blinkOn = true;
+unsigned long lastBlinkToggle = 0;
 
 int pixelIndex(int x, int y) {
   if (kSerpentine && (y % 2 == 1)) {
     x = kWidth - 1 - x;
   }
   return y * kWidth + x;
+}
+
+// Recomposites both layers and pushes the result to the strip. Boundary,
+// target, AND trail all blink together at ~33Hz to save power -- only the
+// agent's current position stays lit continuously, since that's the one
+// thing that always needs to be visible. Draw order within the blink
+// group doesn't matter (none of them overlap in practice), but the agent
+// is always drawn last so it reads clearly even if it currently sits on
+// the boundary outline or (at episode end) the target.
+void render() {
+  strip.clear();
+
+  if (blinkOn) {
+    for (int i = 0; i < boundaryCount; i++) {
+      strip.setPixelColor(pixelIndex(boundaryPoints[i].x, boundaryPoints[i].y),
+                           strip.Color(kBoundaryR, kBoundaryG, kBoundaryB));
+    }
+    if (hasTarget) {
+      strip.setPixelColor(pixelIndex(targetPoint.x, targetPoint.y),
+                           strip.Color(kTargetR, kTargetG, kTargetB));
+    }
+    for (int i = 0; i < trailCount; i++) {
+      strip.setPixelColor(pixelIndex(trailPoints[i].x, trailPoints[i].y),
+                           strip.Color(kTrailR, kTrailG, kTrailB));
+    }
+  }
+
+  if (hasAgent) {
+    strip.setPixelColor(pixelIndex(agentPoint.x, agentPoint.y),
+                         strip.Color(kAgentR, kAgentG, kAgentB));
+  }
+
+  strip.show();
+}
+
+bool inBounds(LedPoint p) {
+  return p.x >= 0 && p.x < kWidth && p.y >= 0 && p.y < kHeight;
 }
 }  // namespace
 
@@ -73,6 +158,81 @@ bool ledBoardSetPixelColor(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
   strip.setPixelColor(pixelIndex(x, y), strip.Color(r, g, b));
   strip.show();
   return true;
+}
+
+bool ledBoardSetEpisodeLayer(const LedPoint* boundary, int boundaryN, LedPoint target) {
+  boundaryCount = 0;
+  for (int i = 0; i < boundaryN && boundaryCount < kMaxBoundaryPoints; i++) {
+    if (inBounds(boundary[i])) {
+      boundaryPoints[boundaryCount++] = boundary[i];
+    }
+  }
+
+  hasTarget = inBounds(target);
+  targetPoint = target;
+
+  // Restart the blink phase on-lit, so a fresh episode's boundary/target
+  // are immediately visible rather than possibly appearing mid-off-phase.
+  blinkOn = true;
+  lastBlinkToggle = millis();
+
+  render();
+  return true;
+}
+
+bool ledBoardSetDynamicLayer(LedPoint agent, const LedPoint* trail, int trailN) {
+  hasAgent = inBounds(agent);
+  agentPoint = agent;
+
+  trailCount = 0;
+  for (int i = 0; i < trailN && trailCount < kMaxTrailPoints; i++) {
+    if (inBounds(trail[i])) {
+      trailPoints[trailCount++] = trail[i];
+    }
+  }
+
+  render();
+  return true;
+}
+
+bool ledBoardClear() {
+  // Resets the retained layer state too, not just the visible pixels --
+  // otherwise a stray autonomous blink tick right after this call would
+  // immediately redraw the previous episode's boundary/target/trail from
+  // whatever was last set, defeating the point of clearing.
+  boundaryCount = 0;
+  hasTarget = false;
+  trailCount = 0;
+  hasAgent = false;
+  blinkOn = true;
+  lastBlinkToggle = millis();
+
+  strip.clear();
+  strip.show();
+  return true;
+}
+
+void ledBoardTick() {
+  // strip.show() (inside render()) disables interrupts for the several ms
+  // it takes to bit-bang the whole panel -- long enough that UART bytes
+  // arriving mid-call get dropped by the hardware's tiny receive buffer,
+  // corrupting whatever command line was in flight. If a byte has already
+  // started arriving, skip this blink tick and let loop() finish reading
+  // the command first; we'll pick the blink back up next pass. This
+  // doesn't fully close the race (a command can still start arriving
+  // during an already-in-progress show()), but it closes the far more
+  // common case of starting a new show() on top of a partially-received
+  // line -- see led_board_client.py's retry-on-ERR for the rest.
+  if (Serial.available()) {
+    return;
+  }
+
+  unsigned long now = millis();
+  if (now - lastBlinkToggle >= kBlinkHalfPeriodMs) {
+    lastBlinkToggle = now;
+    blinkOn = !blinkOn;
+    render();
+  }
 }
 
 #endif  // ACTIVE_BOARD == BOARD_WS2812B_MATRIX

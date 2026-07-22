@@ -119,7 +119,14 @@ python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
 ```
 python3 eval_demo_8-8.py checkpoint_dir=... seed=7
 ```
-See [`arduino/README.md`](arduino/README.md) for the LED hardware/firmware side and the WSL2/Docker USB setup this needs.
+
+[`eval_demo_16-16.py`](eval_demo_16-16.py) is the same idea on the 16x16 WS2812B panel, but in **global** board coordinates (`env.local_to_global`) so the whole grid is visible, not just the current subgrid:
+```
+python3 eval_demo_16-16.py checkpoint_dir=... seed=7
+```
+Shows, simultaneously: the current subgrid's boundary (dim green, blinking ~33Hz), the target (dim blue, blinking ~33Hz), the agent's trail (dim red, also blinking, and cleared once the agent actually reaches the target), and the agent itself (full red, always lit). Reports steps/return/success plus an estimated LED count / power draw at the end of the run (see [`arduino/led_board_controller/power_model.py`](arduino/led_board_controller/power_model.py)); pass `dry_run=true` to get that same report -- including the real episode's boundary/trail geometry -- without any LED board attached at all.
+
+See [`arduino/README.md`](arduino/README.md) for the LED hardware/firmware side (including the serial protocol both demos speak) and the WSL2/Docker USB setup this needs.
 
 ### Accelerate config
 

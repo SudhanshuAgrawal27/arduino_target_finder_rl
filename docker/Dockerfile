@@ -99,6 +99,24 @@ RUN mkdir -p /var/run/sshd /root/.ssh \
     && echo "StrictHostKeyChecking no" >> /root/.ssh/config \
     && chmod 600 /root/.ssh/config
 
+# Arduino CLI + AVR toolchain -- lets the LED board firmware
+# (arduino/led_board_controller/firmware/led_serial_listener/) be compiled
+# and verified from inside the container without the Arduino IDE. Versions
+# pinned to what's been verified to compile clean against this repo's
+# firmware for both drivers (BOARD_WS2812B_MATRIX and BOARD_MAX7219_MATRIX
+# in board_config.h).
+RUN BINDIR=/usr/local/bin sh -c "$(curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh)" -- 1.5.1 \
+    && arduino-cli config init --overwrite \
+    && arduino-cli core update-index \
+    && arduino-cli core install arduino:avr@1.8.8 \
+    && arduino-cli lib update-index \
+    && arduino-cli lib install "Adafruit NeoPixel"@1.15.5 "LedControl"@1.0.6
+
+# /workspace is bind-mounted from the WSL2 host, so it's owned by the host
+# user rather than the container's root -- git refuses to operate on a repo
+# it doesn't own ("dubious ownership") unless explicitly told this is fine.
+RUN git config --global --add safe.directory /workspace
+
 WORKDIR /workspace
 
 EXPOSE 22

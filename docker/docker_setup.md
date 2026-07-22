@@ -41,6 +41,7 @@ Built from `docker/Dockerfile` and tagged `tf-512-gpu`. Stack:
 - Linux tools: tmux, vim, htop, nvtop, gpustat, adb, pdsh
 - InfiniBand/RDMA libraries for multi-node training
 - OpenSSH server (for VS Code attachment)
+- Arduino CLI 1.5.1 + AVR core 1.8.8 + Adafruit NeoPixel/LedControl libraries (compiles/verifies `arduino/led_board_controller/firmware/`)
 
 To rebuild:
 ```bash
