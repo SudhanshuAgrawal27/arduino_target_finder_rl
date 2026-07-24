@@ -111,6 +111,25 @@ def set_episode_layer(ser, boundary_points, target_point):
     return _send(ser, f"E:{len(boundary_points)}:{boundary}|{tx},{ty}\n")
 
 
+def read_ldr(ser):
+    """Read the LM358 photoresistor's current value (0-1023, higher =
+    brighter) via the "L" command. Unlike every other command, the reply is
+    the raw reading itself rather than "OK"/"ERR", so this retries on a
+    reply that doesn't parse as an int rather than one that isn't "OK" --
+    same blink-tick race as _send (see its docstring), different success
+    check."""
+    reply = ""
+    for attempt in range(_MAX_ATTEMPTS):
+        ser.write(b"L\n")
+        reply = ser.readline().decode().strip()
+        try:
+            return int(reply)
+        except ValueError:
+            if attempt < _MAX_ATTEMPTS - 1:
+                time.sleep(_RETRY_DELAY_SECONDS)
+    raise RuntimeError(f"LED board returned invalid LDR reading: {reply!r}")
+
+
 def set_dynamic_layer(ser, agent_point, trail_points):
     """WS2812B only. Set the per-step layer: the agent's current position
     (full-bright red, always lit) and its trail of prior positions (dim

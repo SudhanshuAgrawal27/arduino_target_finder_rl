@@ -16,7 +16,7 @@ hydra:
   output_subdir: null
 
 checkpoint_dir: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
-seed: 27
+seed: 0
 
 led_port: /dev/ttyUSB0
 led_baud: 115200

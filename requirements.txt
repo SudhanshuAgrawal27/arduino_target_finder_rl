@@ -67,3 +67,6 @@ pytest==8.3.3
 
 # --- Arduino / hardware serial control ---
 pyserial==3.5
+
+# --- Plotting ---
+matplotlib==3.11.1

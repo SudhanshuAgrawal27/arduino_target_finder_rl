@@ -25,7 +25,7 @@ constexpr uint8_t kBrightness = 40;
 // "background" next to the agent) without depending on per-pixel
 // brightness, which NeoPixel doesn't support -- only strip.setBrightness()
 // as a single global scalar.
-constexpr uint8_t kAgentR = 255, kAgentG = 0, kAgentB = 0;      // full red
+constexpr uint8_t kAgentR = 255, kAgentG = 255, kAgentB = 255;  // full white
 constexpr uint8_t kTrailR = 15, kTrailG = 0, kTrailB = 0;       // dim red
 constexpr uint8_t kBoundaryR = 0, kBoundaryG = 20, kBoundaryB = 0;  // dim green
 constexpr uint8_t kTargetR = 0, kTargetG = 0, kTargetB = 60;    // dim blue

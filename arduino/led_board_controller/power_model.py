@@ -10,7 +10,7 @@ matching constants below.
 # Per-role RGB colors and the global strip brightness scale -- must match
 # ws2812b_matrix_driver.cpp's kAgentR/kTrailR/kBoundaryR/kTargetR (colors)
 # and kBrightness (global scale, applied on top of these by strip.setBrightness()).
-AGENT_COLOR = (255, 0, 0)
+AGENT_COLOR = (255, 255, 255)
 TRAIL_COLOR = (15, 0, 0)
 BOUNDARY_COLOR = (0, 20, 0)
 TARGET_COLOR = (0, 0, 60)

@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 trained_models/
+ldr_test_plot.png
+ldr_sweep_plot.png

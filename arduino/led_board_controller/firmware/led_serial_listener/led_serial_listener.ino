@@ -5,6 +5,12 @@
 
 namespace {
 
+// LM358 photoresistor module's analog output. Independent of ACTIVE_BOARD --
+// A0 is unused by both drivers (MAX7219: DIN/CLK/CS on 12/11/10; WS2812B:
+// data on 6) -- so it's read here in the shared listener rather than behind
+// led_board_driver.h, which is only about pixel output.
+constexpr int kLdrPin = A0;
+
 // Sized with headroom over the longest line we ever send: a full,
 // unclipped 36-point boundary + its length prefix + a target comes to
 // ~155 bytes (see arduino/README.md's protocol table).
@@ -56,6 +62,10 @@ void setup() {
 // Seven line formats share this listener:
 //   "C"                            -- turn off every pixel and reset all
 //                                     retained layer state
+//   "L"                            -- read the LM358 photoresistor (A0) and
+//                                     reply with the raw integer directly --
+//                                     the only command that isn't "OK"/"ERR",
+//                                     since its whole point is returning data
 //   "x,y"                          -- light a single pixel (clears the rest)
 //   "F:r0,r1,r2,r3,r4,r5,r6,r7"    -- light a whole frame at once, one byte
 //                                     per row (bit x of row y = pixel x,y)
@@ -89,6 +99,12 @@ void loop() {
   if (Serial.available()) {
     int len = Serial.readBytesUntil('\n', lineBuf, sizeof(lineBuf) - 1);
     lineBuf[len] = '\0';
+
+    if (lineBuf[0] == 'L' && lineBuf[1] == '\0') {
+      Serial.println(analogRead(kLdrPin));
+      return;
+    }
+
     bool ok = false;
 
     if (lineBuf[0] == 'C' && lineBuf[1] == '\0') {
