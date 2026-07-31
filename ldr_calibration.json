@@ -1,0 +1,38 @@
+{
+  "target": [
+    8,
+    8
+  ],
+  "window_origin": [
+    4,
+    4
+  ],
+  "window_size": 8,
+  "grid_size": 16,
+  "score_radius": 2,
+  "num_runs": 3,
+  "linger_seconds": 0.25,
+  "baseline": 164,
+  "levels": {
+    "background": {
+      "score": 0.0,
+      "avg_delta": 0.14705882352941177,
+      "n_samples": 136
+    },
+    "2": {
+      "score": 0.3333333333333333,
+      "avg_delta": 84.3913043478261,
+      "n_samples": 23
+    },
+    "1": {
+      "score": 0.6666666666666666,
+      "avg_delta": 115.5,
+      "n_samples": 10
+    },
+    "0": {
+      "score": 1.0,
+      "avg_delta": 129.0,
+      "n_samples": 3
+    }
+  }
+}
