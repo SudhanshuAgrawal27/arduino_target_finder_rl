@@ -63,6 +63,29 @@ from simulator import GridEnvironment, State, run_simulation, temporary_seed
 # parameter): both episodes this script runs always have a board attached.
 NO_TARGET = (-1, -1)  # see LedGridDisplay16x16's show_target docstring
 
+# led_board_client's own functions already retry internally (see its
+# _MAX_ATTEMPTS) but real hardware runs have shown that budget can still be
+# exhausted -- around 10% of the time per command, per an eval_ldr_sweep.py
+# --calibrate run (see arduino/README.md's "Known open issue"). Wrapping
+# calls here with a few more full attempts adds extra margin on top of
+# that; how a caller reacts to still-persistent failure after that is a
+# per-call-site decision -- see the two different uses below.
+_EXTRA_RETRY_ATTEMPTS = 3
+
+
+def _retry_send(fn, *args, label):
+    """Calls a led_board_client function up to _EXTRA_RETRY_ATTEMPTS times
+    if it keeps coming back non-"OK", printing a warning on each failed
+    attempt. Returns the final reply either way -- it's up to the caller to
+    decide whether a still-persistent failure is fatal (see call sites)."""
+    reply = "ERR"
+    for attempt in range(_EXTRA_RETRY_ATTEMPTS):
+        reply = fn(*args)
+        if reply == "OK":
+            return reply
+        print(f"warning: LED board rejected {label} ({reply!r}), retry {attempt + 1}/{_EXTRA_RETRY_ATTEMPTS}")
+    return reply
+
 
 def compute_boundary_points(origin, subgrid_size, grid_size, margin):
     """The outline of the rectangle `margin` cells outside the subgrid
@@ -107,14 +130,22 @@ class LedGridDisplay16x16:
         self.step_power_stats = []
 
     def update(self, env):
+        # Cosmetic display state -- a persistent failure here means the
+        # board shows a stale frame for a step, not a wrong RL observation
+        # (unlike build_ldr_proximity_fn's own set_dynamic_layer call, which
+        # feeds the policy and stays fatal-on-failure -- see its docstring).
+        # Losing one frame's visual accuracy is a much better outcome than
+        # losing an entire episode's progress to a transient hardware
+        # glitch, so this warns and keeps going rather than raising.
         if env.steps == 0:
             boundary = compute_boundary_points(
                 env.origin, env.subgrid_size, env.grid_size, self.boundary_margin
             )
             target_point = env.target_global if self.show_target else NO_TARGET
-            reply = set_episode_layer(self.ser, boundary, target_point)
+            reply = _retry_send(set_episode_layer, self.ser, boundary, target_point, label="episode layer")
             if reply != "OK":
-                raise RuntimeError(f"LED board rejected episode layer: {reply!r}")
+                print(f"warning: giving up on episode layer after retries ({reply!r}) -- "
+                      f"boundary/target may be stale this episode")
             self._boundary_count = len(boundary)
             self.trail.clear()
             self.step_power_stats = []
@@ -125,9 +156,10 @@ class LedGridDisplay16x16:
             [] if env.terminated else [p for p in list(self.trail)[:-1] if p != agent_global]
         )
 
-        reply = set_dynamic_layer(self.ser, agent_global, trail_points)
+        reply = _retry_send(set_dynamic_layer, self.ser, agent_global, trail_points, label="dynamic layer")
         if reply != "OK":
-            raise RuntimeError(f"LED board rejected dynamic layer: {reply!r}")
+            print(f"warning: giving up on dynamic layer after retries ({reply!r}) -- "
+                  f"agent/trail display may be one frame stale")
         self.step_power_stats.append(
             frame_power_stats(self._boundary_count, len(trail_points),
                                has_target=self.show_target, has_agent=True)
@@ -159,12 +191,18 @@ def build_ldr_proximity_fn(ser, env, baseline, calibration_levels, linger_second
     (reading - baseline) against the calibrated levels and returns that
     level's score. True game mechanics (movement legality, termination) are
     untouched; this is the sole point where LDR data enters the picture,
-    called from inside GridEnvironment.perform_action."""
+    called from inside GridEnvironment.perform_action.
+
+    Unlike LedGridDisplay16x16.update()'s cosmetic display calls, a
+    persistent failure here is left fatal (raises rather than warns and
+    continues): the LED not actually reaching `pos` means the LDR reading
+    that follows would reflect the wrong position, feeding the policy a
+    silently wrong observation -- worse than a loud crash."""
     def ldr_proximity(pos):
         global_pos = env.local_to_global(*pos)
-        reply = set_dynamic_layer(ser, global_pos, [])
+        reply = _retry_send(set_dynamic_layer, ser, global_pos, [], label="dynamic layer (proximity measurement)")
         if reply != "OK":
-            raise RuntimeError(f"LED board rejected dynamic layer: {reply!r}")
+            raise RuntimeError(f"LED board rejected dynamic layer after retries: {reply!r}")
         time.sleep(linger_seconds)
         delta = read_ldr(ser) - baseline
         nearest = min(calibration_levels.values(), key=lambda level: abs(level["avg_delta"] - delta))

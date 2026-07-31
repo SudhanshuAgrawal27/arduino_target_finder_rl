@@ -1,3 +1,4 @@
+import random
 import time
 
 import serial
@@ -19,13 +20,19 @@ BAUD = 115200
 # each ~7.7ms render leaves only ~7.3ms of quiet time before the next one,
 # so a single short command has roughly a 35-50% chance of landing clean on
 # any given attempt -- meaningfully worse than at the original ~16Hz, where
-# the quiet window was much wider. A handful of retries isn't enough
-# headroom to keep the failure probability negligible across a whole
-# episode's worth of commands, so this is deliberately generous: even at a
-# ~50% chance of failure per attempt, this many attempts pushes the
-# all-attempts-fail probability for one command well under 0.1%.
-_MAX_ATTEMPTS = 20
-_RETRY_DELAY_SECONDS = 0.05
+# the quiet window was much wider.
+#
+# In practice (see eval_ldr_sweep.py --calibrate runs) the real failure
+# rate after exhausting every attempt was ~10% -- far worse than a naive
+# ~0.5^20 estimate from independent per-attempt coin flips. That gap points
+# at attempts NOT being independent: a fixed retry delay can end up
+# quasi-periodic with the board's own ~30ms full blink cycle, so a command
+# that loses the race once can keep losing it on every retry instead of
+# getting a fresh, uncorrelated shot each time. _RETRY_DELAY_RANGE_SECONDS
+# jitters the delay to break that correlation, and _MAX_ATTEMPTS is raised
+# to add margin on top of that fix rather than instead of it.
+_MAX_ATTEMPTS = 30
+_RETRY_DELAY_RANGE_SECONDS = (0.02, 0.08)
 
 
 def connect(port=PORT, baud=BAUD):
@@ -47,7 +54,7 @@ def _send(ser, line):
         if reply == "OK":
             return reply
         if attempt < _MAX_ATTEMPTS - 1:
-            time.sleep(_RETRY_DELAY_SECONDS)
+            time.sleep(random.uniform(*_RETRY_DELAY_RANGE_SECONDS))
     return reply
 
 
@@ -126,7 +133,7 @@ def read_ldr(ser):
             return int(reply)
         except ValueError:
             if attempt < _MAX_ATTEMPTS - 1:
-                time.sleep(_RETRY_DELAY_SECONDS)
+                time.sleep(random.uniform(*_RETRY_DELAY_RANGE_SECONDS))
     raise RuntimeError(f"LED board returned invalid LDR reading: {reply!r}")
 
 
