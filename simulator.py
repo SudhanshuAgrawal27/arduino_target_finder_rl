@@ -31,6 +31,21 @@ ACTION_DELTAS = {
 State = namedtuple("State", ["x", "y", "score"])
 
 
+def proximity_score(distance, score_radius):
+    """Persistent "warmth" for being `distance` cells (Manhattan) from the
+    target: 1.0 at distance 0, decreasing linearly to 0 at the edge of
+    score_radius, 0 beyond it. Pulled out as a module-level function (rather
+    than staying private to GridEnvironment) so anything that needs to
+    reproduce the trained policy's exact discrete score levels from a
+    distance -- e.g. eval_ldr_sweep.py's LDR-to-proximity calibration --
+    can import this instead of re-deriving/duplicating the formula."""
+    if distance == 0:
+        return 1.0
+    if distance <= score_radius:
+        return (score_radius + 1 - distance) / (score_radius + 1)
+    return 0.0
+
+
 def set_global_seed(seed):
     """Seed the shared random stream every GridEnvironment draws from."""
     random.seed(seed)
@@ -133,14 +148,8 @@ class GridEnvironment:
         return dx + dy
 
     def _proximity(self, pos):
-        """Persistent "warmth" for being at `pos`: 1.0 on the target,
-        decreasing linearly to 0 at the edge of score_radius, 0 beyond it."""
-        d = self._distance_to_target(pos)
-        if d == 0:
-            return 1.0
-        if d <= self.score_radius:
-            return (self.score_radius + 1 - d) / (self.score_radius + 1)
-        return 0.0
+        """Persistent "warmth" for being at `pos` -- see proximity_score."""
+        return proximity_score(self._distance_to_target(pos), self.score_radius)
 
     def get_state(self):
         """The policy's observation: last `history_length` (x, y, score)
