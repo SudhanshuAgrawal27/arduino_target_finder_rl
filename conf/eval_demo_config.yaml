@@ -41,20 +41,10 @@ dry_run: false
 # used for `python3 eval_ldr_sweep.py --calibrate`, since the calibration
 # curve it produced is only a valid reference if live readings settle for
 # the same duration.
-ldr_linger_seconds: 0.5
+ldr_linger_seconds: 0.25
 
 # eval_demo_16-16-ldr-feedback.py only: path to the JSON produced by
 # `python3 eval_ldr_sweep.py --calibrate` -- see that script for what it
 # contains (a delta-vs-distance curve used to turn live LDR readings into
 # the policy's trained discrete proximity levels).
 ldr_calibration_file: ldr_calibration.json
-
-# eval_demo_16-16-ldr-feedback.py only: after the real LDR-driven run, a
-# second "perfect world" episode (same seed, noiseless proximity) always
-# runs to report how many steps the noiseless optimum would have taken.
-# This flag controls whether that second episode is ALSO shown on the
-# board afterward (no LDR reads involved, just the normal boundary/target/
-# trail/agent visualization) -- purely for visual comparison, off by
-# default since the whole point of the dummy run is a fast, board-free
-# reference number.
-display_sim_run: false

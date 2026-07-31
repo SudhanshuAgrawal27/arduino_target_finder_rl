@@ -13,28 +13,31 @@ Pipeline:
      ldr_calibration.json (see simulator.py's proximity_score for the exact
      discrete levels the trained policy expects: 1.0 at distance 0, down to
      0.0 at/past score_radius+1).
-  2. This script, per run:
-     - Draws the episode's subgrid boundary + target (no agent yet) and
-       takes ONE ambient baseline reading -- this is the baseline for the
-       whole game, not re-measured per step.
-     - Loads ldr_calibration.json and, on every step, lights the agent
-       alone (matching how calibration measured its reference deltas),
-       reads the LDR, and nearest-neighbor-classifies the resulting delta
-       against the calibrated levels to get a score in the same
-       {1.0, ..., 0.0} set the policy was trained on.
-     - Runs to termination (agent reaches the target) or truncation
-       (max_steps), same as any other eval_demo, and reports steps/return/
-       success plus the LED power estimate.
-     - Immediately after, runs a second "perfect world" episode -- the same
-       seed, so the same subgrid/start/target, but with the environment's
-       normal noiseless proximity -- purely to report how many steps the
-       noiseless optimum would have taken. Not shown on the board unless
-       display_sim_run=true, and never touches the LDR.
+  2. This script, per run, ALWAYS runs two episodes back to back, same seed
+     (so the same subgrid/start/target) for both:
+     a. A "perfect world" episode first, with the environment's normal
+        noiseless proximity -- shown on the board with the target visibly
+        lit (dim blue), since nothing about this pass depends on hiding it.
+        Purely a reference for how many steps the noiseless optimum takes;
+        never touches the LDR.
+     b. The real LDR-driven episode second -- proximity now comes from an
+        actual photoresistor reading instead of geometric distance. Draws
+        the boundary but deliberately leaves the target UNLIT this time --
+        showing it would give away visually what the agent is supposed to
+        be sensing for itself. Takes one ambient baseline reading up front
+        (the baseline for the whole game, not re-measured per step), then
+        on every step lights the agent alone (matching how calibration
+        measured its reference deltas), reads the LDR, and nearest-
+        neighbor-classifies the resulting delta against ldr_calibration.json
+        to get a score in the same {1.0, ..., 0.0} set the policy was
+        trained on. True game mechanics (movement, termination on reaching
+        the target) are untouched -- only this one signal is replaced.
+     Once both finish, prints steps/return/success/power for both and the
+     step-count delta between them.
 
 Usage:
     python3 eval_ldr_sweep.py --calibrate       # once, before the first run
     python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=... seed=7
-    python3 eval_demo_16-16-ldr-feedback.py display_sim_run=true
 """
 
 import json
@@ -57,9 +60,10 @@ from simulator import GridEnvironment, State, run_simulation, temporary_seed
 # filename contains dashes, so compute_boundary_points/LedGridDisplay16x16
 # can't be shared directly with that file -- keep both copies in sync by
 # hand if either changes. LedGridDisplay16x16 is trimmed here (no dry_run
-# parameter): this script's real run always has a board attached (it's
-# reading the LDR from it), and the dummy run either skips display entirely
-# (on_step=None) or uses a real connection -- there's no board-less case.
+# parameter): both episodes this script runs always have a board attached.
+NO_TARGET = (-1, -1)  # see LedGridDisplay16x16's show_target docstring
+
+
 def compute_boundary_points(origin, subgrid_size, grid_size, margin):
     """The outline of the rectangle `margin` cells outside the subgrid
     [origin, origin + subgrid_size), clipped to the global [0, grid_size)
@@ -84,13 +88,21 @@ class LedGridDisplay16x16:
     """Mirrors env state onto the 16x16 WS2812B panel in global coordinates,
     and tracks a per-step LED count/current estimate for power_summary().
     See eval_demo_16-16.py's version of this class for the full rationale
-    -- this copy always has `ser` connected (no dry_run)."""
+    -- this copy always has `ser` connected (no dry_run).
 
-    def __init__(self, ser, trail_length, boundary_margin, step_delay_seconds=0.0):
+    show_target=False sends an out-of-bounds sentinel instead of the real
+    target coordinate -- ws2812b_matrix_driver.cpp's ledBoardSetEpisodeLayer
+    sets hasTarget = inBounds(target), so anything outside [0, 16) leaves
+    hasTarget false and the target LED simply never lights. Used for the
+    real LDR-driven run, so the board doesn't visually give away what the
+    agent is supposed to be sensing for itself."""
+
+    def __init__(self, ser, trail_length, boundary_margin, step_delay_seconds=0.0, show_target=True):
         self.ser = ser
         self.trail = deque(maxlen=trail_length)
         self.boundary_margin = boundary_margin
         self.step_delay_seconds = step_delay_seconds
+        self.show_target = show_target
         self._boundary_count = 0
         self.step_power_stats = []
 
@@ -99,7 +111,8 @@ class LedGridDisplay16x16:
             boundary = compute_boundary_points(
                 env.origin, env.subgrid_size, env.grid_size, self.boundary_margin
             )
-            reply = set_episode_layer(self.ser, boundary, env.target_global)
+            target_point = env.target_global if self.show_target else NO_TARGET
+            reply = set_episode_layer(self.ser, boundary, target_point)
             if reply != "OK":
                 raise RuntimeError(f"LED board rejected episode layer: {reply!r}")
             self._boundary_count = len(boundary)
@@ -116,7 +129,8 @@ class LedGridDisplay16x16:
         if reply != "OK":
             raise RuntimeError(f"LED board rejected dynamic layer: {reply!r}")
         self.step_power_stats.append(
-            frame_power_stats(self._boundary_count, len(trail_points), has_target=True, has_agent=True)
+            frame_power_stats(self._boundary_count, len(trail_points),
+                               has_target=self.show_target, has_agent=True)
         )
         if self.step_delay_seconds:
             time.sleep(self.step_delay_seconds)
@@ -217,14 +231,30 @@ def main(cfg):
     if reply != "OK":
         raise RuntimeError(f"LED board rejected clear: {reply!r}")
 
-    # --- Real run: proximity comes from the LDR ---
+    # --- 1. Perfect-world run first: same seed, noiseless proximity, shown
+    # on the board with the target visibly lit (nothing to hide here). ---
+    with temporary_seed(cfg.seed):
+        dummy_env = GridEnvironment(**env_kwargs)
+
+    dummy_display = LedGridDisplay16x16(
+        ser, trail_length=dummy_env.history_length, boundary_margin=cfg.boundary_margin,
+        step_delay_seconds=cfg.step_delay_seconds, show_target=True,
+    )
+    dummy_trajectory = run_simulation(env=dummy_env, engine="mlp_network", network=network, on_step=dummy_display.update)
+
+    # --- 2. Real run second: same seed (so the same subgrid/start/target),
+    # proximity comes from the LDR, target deliberately left unlit. ---
     with temporary_seed(cfg.seed):
         env = GridEnvironment(**env_kwargs)
 
-    # Draw the boundary + target with no agent yet, then take the single
+    reply = clear(ser)
+    if reply != "OK":
+        raise RuntimeError(f"LED board rejected clear: {reply!r}")
+
+    # Draw the boundary with no target/agent yet, then take the single
     # ambient-baseline reading this whole game will be measured against.
     boundary = compute_boundary_points(env.origin, env.subgrid_size, env.grid_size, cfg.boundary_margin)
-    reply = set_episode_layer(ser, boundary, env.target_global)
+    reply = set_episode_layer(ser, boundary, NO_TARGET)
     if reply != "OK":
         raise RuntimeError(f"LED board rejected episode layer: {reply!r}")
     time.sleep(cfg.ldr_linger_seconds)
@@ -246,38 +276,20 @@ def main(cfg):
 
     # step_delay_seconds=0: ldr_proximity's own settle wait already paces
     # every step -- an extra delay here would just double up the pause.
-    real_display = LedGridDisplay16x16(ser, trail_length=env.history_length, boundary_margin=cfg.boundary_margin)
+    real_display = LedGridDisplay16x16(
+        ser, trail_length=env.history_length, boundary_margin=cfg.boundary_margin, show_target=False,
+    )
     real_trajectory = run_simulation(env=env, engine="mlp_network", network=network, on_step=real_display.update)
 
+    ser.close()
+
+    # --- Both episodes are done -- report both together. ---
     accelerator.print(f"Checkpoint: {checkpoint_dir}")
+    dummy_steps = print_outcome(accelerator, "perfect-world run", dummy_trajectory, dummy_env.terminated)
+    print_power_summary(accelerator, dummy_display)
     real_steps = print_outcome(accelerator, "LDR-feedback run", real_trajectory, env.terminated)
     print_power_summary(accelerator, real_display)
-
-    # --- Dummy "perfect world" run: same episode, noiseless proximity ---
-    with temporary_seed(cfg.seed):
-        dummy_env = GridEnvironment(**env_kwargs)
-
-    display_sim_run = cfg.get("display_sim_run", False)
-    on_step = None
-    dummy_display = None
-    if display_sim_run:
-        reply = clear(ser)
-        if reply != "OK":
-            raise RuntimeError(f"LED board rejected clear: {reply!r}")
-        dummy_display = LedGridDisplay16x16(
-            ser, trail_length=dummy_env.history_length, boundary_margin=cfg.boundary_margin,
-            step_delay_seconds=cfg.step_delay_seconds,
-        )
-        on_step = dummy_display.update
-
-    dummy_trajectory = run_simulation(env=dummy_env, engine="mlp_network", network=network, on_step=on_step)
-    dummy_steps = print_outcome(accelerator, "perfect-world dummy run", dummy_trajectory, dummy_env.terminated)
-    if dummy_display is not None:
-        print_power_summary(accelerator, dummy_display)
-
     accelerator.print(f"LDR feedback cost {real_steps - dummy_steps} extra step(s) vs. the noiseless optimum")
-
-    ser.close()
 
 
 if __name__ == "__main__":
