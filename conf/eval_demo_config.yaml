@@ -1,8 +1,10 @@
-# Shared config for eval_demo_8-8.py and eval_demo_16-16.py -- each runs a
-# single demo episode from a chosen checkpoint while mirroring it live onto
-# the corresponding physical LED matrix.
+# Shared config for eval_demo_8-8.py, eval_demo_16-16.py, and
+# eval_demo_16-16-ldr-feedback.py -- each runs a single demo episode from a
+# chosen checkpoint while mirroring it live onto the corresponding physical
+# LED matrix.
 #   python3 eval_demo_8-8.py
 #   python3 eval_demo_16-16.py
+#   python3 eval_demo_16-16-ldr-feedback.py
 # Override checkpoint_dir/seed to demo a different run/episode.
 
 defaults:
@@ -16,7 +18,7 @@ hydra:
   output_subdir: null
 
 checkpoint_dir: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
-seed: 0
+seed: 5
 
 led_port: /dev/ttyUSB0
 led_baud: 115200
@@ -32,3 +34,27 @@ boundary_margin: 1
 # power summary as a real run would. Lets you check the outcome and power
 # budget without any hardware attached.
 dry_run: false
+
+# eval_demo_16-16-ldr-feedback.py only: how long to wait for the LDR to
+# settle before each read -- reused for the once-per-game ambient baseline
+# and every per-step reading. Should match whatever --linger-seconds was
+# used for `python3 eval_ldr_sweep.py --calibrate`, since the calibration
+# curve it produced is only a valid reference if live readings settle for
+# the same duration.
+ldr_linger_seconds: 0.5
+
+# eval_demo_16-16-ldr-feedback.py only: path to the JSON produced by
+# `python3 eval_ldr_sweep.py --calibrate` -- see that script for what it
+# contains (a delta-vs-distance curve used to turn live LDR readings into
+# the policy's trained discrete proximity levels).
+ldr_calibration_file: ldr_calibration.json
+
+# eval_demo_16-16-ldr-feedback.py only: after the real LDR-driven run, a
+# second "perfect world" episode (same seed, noiseless proximity) always
+# runs to report how many steps the noiseless optimum would have taken.
+# This flag controls whether that second episode is ALSO shown on the
+# board afterward (no LDR reads involved, just the normal boundary/target/
+# trail/agent visualization) -- purely for visual comparison, off by
+# default since the whole point of the dummy run is a fast, board-free
+# reference number.
+display_sim_run: false
