@@ -22,11 +22,14 @@ Pipeline:
         never touches the LDR.
      b. The real LDR-driven episode second -- proximity now comes from an
         actual photoresistor reading instead of geometric distance. Draws
-        the boundary but deliberately leaves the target UNLIT this time --
-        showing it would give away visually what the agent is supposed to
-        be sensing for itself. Takes one ambient baseline reading up front
-        (the baseline for the whole game, not re-measured per step), then
-        on every step lights the agent alone (matching how calibration
+        the boundary and takes one ambient baseline reading up front (the
+        baseline for the whole game, not re-measured per step) with the
+        target unlit, then briefly pulses the target blue a few times --
+        purely so a human watching the board can see where it is -- before
+        it disappears for good and the game actually starts. During play
+        the target stays deliberately UNLIT: showing it would give away
+        visually what the agent is supposed to be sensing for itself. On
+        every step, lights the agent alone (matching how calibration
         measured its reference deltas), reads the LDR, and nearest-
         neighbor-classifies the resulting delta against ldr_calibration.json
         to get a score in the same {1.0, ..., 0.0} set the policy was
@@ -72,6 +75,14 @@ NO_TARGET = (-1, -1)  # see LedGridDisplay16x16's show_target docstring
 # per-call-site decision -- see the two different uses below.
 _EXTRA_RETRY_ATTEMPTS = 3
 
+# How the one-time "here's where the target is" preview blinks before the
+# real LDR-driven run starts: on/off in equal halves, repeated this many
+# times, purely a visual cue for a human watching the board -- the RL
+# episode itself never sees the target lit (show_target=False below).
+_TARGET_PREVIEW_CYCLES = 3
+_TARGET_PREVIEW_ON_SECONDS = 0.5
+_TARGET_PREVIEW_OFF_SECONDS = 0.5
+
 
 def _retry_send(fn, *args, label):
     """Calls a led_board_client function up to _EXTRA_RETRY_ATTEMPTS times
@@ -105,6 +116,33 @@ def compute_boundary_points(origin, subgrid_size, grid_size, margin):
         points.add((x_max, y))
 
     return [(x, y) for x, y in points if 0 <= x < grid_size and 0 <= y < grid_size]
+
+
+def preview_target(ser, boundary, target_point):
+    """One-time, human-facing cue: blinks the target blue a few slow on/off
+    cycles, then leaves it off. Called once, right before the real LDR-
+    driven run starts, so someone watching the board can see where the
+    target is before the run begins hiding it (see show_target=False on
+    that run's LedGridDisplay16x16) -- it never affects what the policy
+    itself observes, since this happens before env._proximity is patched
+    and before run_simulation starts stepping the episode.
+
+    Reuses set_episode_layer's own dim-blue target color, toggling it
+    against the sentinel used elsewhere to hide the target (NO_TARGET) --
+    the same on-board mechanism LedGridDisplay16x16 uses, just driven
+    manually here at a much slower, human-visible cadence. Cosmetic only
+    (like LedGridDisplay16x16.update()): a persistent failure warns and
+    moves on rather than aborting the run over a preview blink."""
+    for cycle in range(_TARGET_PREVIEW_CYCLES):
+        reply = _retry_send(set_episode_layer, ser, boundary, target_point, label="episode layer (target preview on)")
+        if reply != "OK":
+            print(f"warning: giving up on target preview on-blink {cycle + 1} after retries ({reply!r})")
+        time.sleep(_TARGET_PREVIEW_ON_SECONDS)
+
+        reply = _retry_send(set_episode_layer, ser, boundary, NO_TARGET, label="episode layer (target preview off)")
+        if reply != "OK":
+            print(f"warning: giving up on target preview off-blink {cycle + 1} after retries ({reply!r})")
+        time.sleep(_TARGET_PREVIEW_OFF_SECONDS)
 
 
 class LedGridDisplay16x16:
@@ -298,6 +336,10 @@ def main(cfg):
     time.sleep(cfg.ldr_linger_seconds)
     baseline = read_ldr(ser)
     accelerator.print(f"LDR baseline for this game: {baseline}")
+
+    # Briefly show a human where the target is before the run starts hiding
+    # it -- purely cosmetic, doesn't touch the LDR or the policy.
+    preview_target(ser, boundary, env.target_global)
 
     env._proximity = build_ldr_proximity_fn(ser, env, baseline, calibration_levels, cfg.ldr_linger_seconds)
 
