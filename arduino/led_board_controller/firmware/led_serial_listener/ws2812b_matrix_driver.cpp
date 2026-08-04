@@ -64,6 +64,12 @@ int trailCount = 0;
 LedPoint agentPoint = {-1, -1};
 bool hasAgent = false;
 
+// See ledBoardSetThinkingLayer -- always lit while active (not gated by
+// blinkOn), cleared as a side effect of the next ledBoardSetDynamicLayer.
+LedPoint thinkingPoints[kMaxThinkingPoints];
+uint8_t thinkingBrightness[kMaxThinkingPoints];
+int thinkingCount = 0;
+
 bool blinkOn = true;
 unsigned long lastBlinkToggle = 0;
 
@@ -97,6 +103,16 @@ void render() {
       strip.setPixelColor(pixelIndex(trailPoints[i].x, trailPoints[i].y),
                            strip.Color(kTrailR, kTrailG, kTrailB));
     }
+  }
+
+  // Drawn after the blink group but before the agent, so the agent still
+  // reads clearly if it happens to overlap a thinking candidate (e.g. an
+  // illegal move's candidate cell coincides with the agent's own current
+  // position).
+  for (int i = 0; i < thinkingCount; i++) {
+    uint8_t v = thinkingBrightness[i];
+    strip.setPixelColor(pixelIndex(thinkingPoints[i].x, thinkingPoints[i].y),
+                         strip.Color(v, v, 0));
   }
 
   if (hasAgent) {
@@ -191,6 +207,25 @@ bool ledBoardSetDynamicLayer(LedPoint agent, const LedPoint* trail, int trailN) 
     }
   }
 
+  // The step this dynamic-layer update represents has actually happened by
+  // now, so any thinking-layer preview from just before it is stale --
+  // clear it as a side effect rather than requiring a separate command.
+  thinkingCount = 0;
+
+  render();
+  return true;
+}
+
+bool ledBoardSetThinkingLayer(const LedPoint* points, const uint8_t* brightness, int count) {
+  thinkingCount = 0;
+  for (int i = 0; i < count && thinkingCount < kMaxThinkingPoints; i++) {
+    if (inBounds(points[i])) {
+      thinkingPoints[thinkingCount] = points[i];
+      thinkingBrightness[thinkingCount] = brightness[i];
+      thinkingCount++;
+    }
+  }
+
   render();
   return true;
 }
@@ -204,6 +239,7 @@ bool ledBoardClear() {
   hasTarget = false;
   trailCount = 0;
   hasAgent = false;
+  thinkingCount = 0;
   blinkOn = true;
   lastBlinkToggle = millis();
 

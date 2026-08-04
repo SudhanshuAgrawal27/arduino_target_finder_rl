@@ -118,6 +118,25 @@ def set_episode_layer(ser, boundary_points, target_point):
     return _send(ser, f"E:{len(boundary_points)}:{boundary}|{tx},{ty}\n")
 
 
+def set_thinking_layer(ser, points):
+    """WS2812B only. Sets the transient "thinking" overlay: up to 4 points,
+    each a shade of yellow scaled by its own brightness (0-255), always lit
+    until the next set_dynamic_layer call implicitly clears it (or an empty
+    call here does). `points` is an iterable of (x, y, brightness) in
+    global board coordinates. Length-prefixed like set_episode_layer/
+    set_dynamic_layer, so a line truncated in transit is rejected rather
+    than silently rendering fewer points than intended.
+
+    Used only by eval_demo_16-16-ldr-feedback.py's simulation ("perfect
+    world") episode, to preview the policy's per-action confidence for a
+    moment right before each move -- never sent during the real LDR-driven
+    episode, which would otherwise give away information the agent can't
+    itself sense."""
+    points = list(points)
+    body = ";".join(f"{x},{y},{v}" for x, y, v in points)
+    return _send(ser, f"T:{len(points)}:{body}\n")
+
+
 def read_ldr(ser):
     """Read the LM358 photoresistor's current value (0-1023, higher =
     brighter) via the "L" command. Unlike every other command, the reply is

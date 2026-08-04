@@ -106,6 +106,17 @@ class ActorCritic(nn.Module):
         logits, _value = self._forward_single(observation)
         return logits.argmax().item()
 
+    def action_probs(self, observation):
+        """Softmax probability over all four actions for a single raw
+        observation. Unlike act_deterministic (which only returns the
+        greedy argmax), this exposes the full distribution -- used to
+        visualize the policy's per-action confidence rather than to act,
+        e.g. eval_demo_16-16-ldr-feedback.py's simulation-only "thinking"
+        preview. Returns a dict keyed by simulator.ACTIONS."""
+        logits, _value = self._forward_single(observation)
+        probs = torch.softmax(logits, dim=-1)
+        return {action: probs[i].item() for i, action in enumerate(ACTIONS)}
+
     def get_value(self, observation):
         """Value estimate for a single raw observation. Used to bootstrap
         GAE at a truncated episode's final state (a terminated episode's

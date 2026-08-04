@@ -19,7 +19,14 @@ Pipeline:
         noiseless proximity -- shown on the board with the target visibly
         lit (dim blue), since nothing about this pass depends on hiding it.
         Purely a reference for how many steps the noiseless optimum takes;
-        never touches the LDR.
+        never touches the LDR. Simulation-only extra: right before each
+        move, briefly lights the 4 candidate next cells (one per action) in
+        shades of yellow scaled by that action's policy probability, so a
+        viewer can see what the agent is "thinking" before it commits to a
+        direction -- purely cosmetic, and never shown during the real
+        LDR-driven episode below (which already hides the target for the
+        same reason: not giving away information the agent can't itself
+        sense).
      b. The real LDR-driven episode second -- proximity now comes from an
         actual photoresistor reading instead of geometric distance. Draws
         the boundary and takes one ambient baseline reading up front (the
@@ -52,11 +59,13 @@ import hydra
 from accelerate import Accelerator
 from omegaconf import OmegaConf
 
-from arduino.led_board_controller.led_board_client import clear, connect, read_ldr, set_dynamic_layer, set_episode_layer
+from arduino.led_board_controller.led_board_client import (
+    clear, connect, read_ldr, set_dynamic_layer, set_episode_layer, set_thinking_layer,
+)
 from arduino.led_board_controller.power_model import SUPPLY_VOLTAGE, frame_power_stats
 from eval_lib import DeterministicPolicy
 from network import ActorCritic
-from simulator import GridEnvironment, State, run_simulation, temporary_seed
+from simulator import ACTION_DELTAS, GridEnvironment, State, run_simulation, temporary_seed
 
 
 # Duplicated from eval_demo_16-16.py: Python can't `import` a module whose
@@ -82,6 +91,10 @@ _EXTRA_RETRY_ATTEMPTS = 3
 _TARGET_PREVIEW_CYCLES = 3
 _TARGET_PREVIEW_ON_SECONDS = 0.5
 _TARGET_PREVIEW_OFF_SECONDS = 0.5
+
+# How long the simulation-only "thinking" preview (see show_thinking) stays
+# lit before the move it previews actually happens.
+_THINKING_ON_SECONDS = 0.4
 
 
 def _retry_send(fn, *args, label):
@@ -143,6 +156,40 @@ def preview_target(ser, boundary, target_point):
         if reply != "OK":
             print(f"warning: giving up on target preview off-blink {cycle + 1} after retries ({reply!r})")
         time.sleep(_TARGET_PREVIEW_OFF_SECONDS)
+
+
+def show_thinking(ser, env, action_probs):
+    """Simulation-only visual aid: briefly lights the 4 candidate next cells
+    (one per action) a shade of yellow scaled by that action's policy
+    probability, right before the move actually happens -- so a viewer can
+    see what the agent is "thinking" before it commits to a direction.
+
+    Wired in as run_simulation's on_think callback for the perfect-world
+    episode only (see main()) -- the real LDR-driven episode never calls
+    this, matching how it already hides the target: both keep the board
+    from giving away information the agent itself can't sense.
+
+    `env` still reflects the pre-move state (on_think fires before
+    perform_action), so agent_local + each action's delta gives the
+    candidate cell it would move to. A candidate outside the board is
+    simply not lit (ledBoardSetThinkingLayer filters to in-bounds points),
+    which can happen for an illegal move at the subgrid edge.
+
+    Clears itself automatically: the next set_dynamic_layer call (from
+    LedGridDisplay16x16.update(), once this move actually completes) resets
+    the board's retained thinking-layer state as a side effect, so nothing
+    here needs to explicitly turn it back off."""
+    points = []
+    for action, (dx, dy) in ACTION_DELTAS.items():
+        candidate_local = (env.agent_local[0] + dx, env.agent_local[1] + dy)
+        cx, cy = env.local_to_global(*candidate_local)
+        brightness = round(action_probs[action] * 255)
+        points.append((cx, cy, brightness))
+
+    reply = _retry_send(set_thinking_layer, ser, points, label="thinking layer")
+    if reply != "OK":
+        print(f"warning: giving up on thinking-layer preview after retries ({reply!r})")
+    time.sleep(_THINKING_ON_SECONDS)
 
 
 class LedGridDisplay16x16:
@@ -316,7 +363,13 @@ def main(cfg):
         ser, trail_length=dummy_env.history_length, boundary_margin=cfg.boundary_margin,
         step_delay_seconds=cfg.step_delay_seconds, show_target=True,
     )
-    dummy_trajectory = run_simulation(env=dummy_env, engine="mlp_network", network=network, on_step=dummy_display.update)
+    # on_think=show_thinking: simulation-only -- never passed to the real
+    # LDR-driven run below, which must not reveal anything beyond its own
+    # sensor reading.
+    dummy_trajectory = run_simulation(
+        env=dummy_env, engine="mlp_network", network=network,
+        on_step=dummy_display.update, on_think=lambda env, probs: show_thinking(ser, env, probs),
+    )
 
     # --- 2. Real run second: same seed (so the same subgrid/start/target),
     # proximity comes from the LDR, target deliberately left unlit. ---

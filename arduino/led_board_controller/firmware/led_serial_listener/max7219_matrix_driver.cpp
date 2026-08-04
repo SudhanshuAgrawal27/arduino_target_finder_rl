@@ -73,6 +73,14 @@ bool ledBoardSetDynamicLayer(LedPoint agent, const LedPoint* trail, int trailCou
   return false;
 }
 
+bool ledBoardSetThinkingLayer(const LedPoint* points, const uint8_t* brightness, int count) {
+  // No color and no retained multi-point state on this board.
+  (void)points;
+  (void)brightness;
+  (void)count;
+  return false;
+}
+
 void ledBoardTick() {
   // Nothing animates on its own clock on this board.
 }

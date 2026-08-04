@@ -230,7 +230,7 @@ class GridEnvironment:
         print("\n".join(lines))
 
 
-def run_simulation(env, engine="manual", network=None, on_step=None):
+def run_simulation(env, engine="manual", network=None, on_step=None, on_think=None):
     """Run one full episode and return the trajectory.
 
     `env` must already be constructed/configured by the caller. trajectory
@@ -258,6 +258,16 @@ def run_simulation(env, engine="manual", network=None, on_step=None):
     and once after every action -- lets a caller mirror the episode
     somewhere else (e.g. eval_demo_8-8.py driving the physical LED matrix)
     without run_simulation itself knowing anything about that destination.
+
+    on_think: optional callback, only ever invoked when engine="mlp_network",
+    called as `on_think(env, action_probs)` right before each action is
+    taken -- `env` still reflects the state the agent is acting FROM, and
+    action_probs is a dict from simulator.ACTIONS to that action's policy
+    probability for this observation (via `network.action_probs`). Lets a
+    caller visualize the policy's confidence just before a move happens
+    (e.g. eval_demo_16-16-ldr-feedback.py's simulation-only preview of the
+    board's "thinking") without influencing which action actually gets
+    taken -- that's always network.act()'s own choice, computed separately.
     """
     trajectory = [{
         "step": 0, "action": None, "reward": None, "observation": env.get_state(),
@@ -281,7 +291,10 @@ def run_simulation(env, engine="manual", network=None, on_step=None):
         elif engine == "mlp_network":
             if network is None:
                 raise ValueError("engine='mlp_network' requires a `network` argument")
-            action_index, log_prob, value, _entropy = network.act(env.get_state())
+            observation = env.get_state()
+            if on_think is not None:
+                on_think(env, network.action_probs(observation))
+            action_index, log_prob, value, _entropy = network.act(observation)
             action = ACTIONS[action_index]
         elif engine == "random":
             action = random.choice(ACTIONS)

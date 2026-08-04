@@ -52,6 +52,36 @@ int parsePoints(char* s, LedPoint* out, int maxOut) {
   return count;
 }
 
+// Like parsePoints, but each token is "x,y,v" (v = brightness 0-255) rather
+// than just "x,y" -- used only by "T:"'s thinking-layer point list.
+int parseThinkingPoints(char* s, LedPoint* outPoints, uint8_t* outBrightness, int maxOut) {
+  int count = 0;
+  char* cursor = s;
+  while (*cursor != '\0' && count < maxOut) {
+    char* semicolon = strchr(cursor, ';');
+    if (semicolon != nullptr) {
+      *semicolon = '\0';
+    }
+
+    char* comma1 = strchr(cursor, ',');
+    char* comma2 = comma1 != nullptr ? strchr(comma1 + 1, ',') : nullptr;
+    if (comma1 != nullptr && comma2 != nullptr) {
+      *comma1 = '\0';
+      *comma2 = '\0';
+      outPoints[count].x = (int8_t)atoi(cursor);
+      outPoints[count].y = (int8_t)atoi(comma1 + 1);
+      outBrightness[count] = (uint8_t)atoi(comma2 + 1);
+      count++;
+    }
+
+    if (semicolon == nullptr) {
+      break;
+    }
+    cursor = semicolon + 1;
+  }
+  return count;
+}
+
 }  // namespace
 
 void setup() {
@@ -59,7 +89,7 @@ void setup() {
   ledBoardInit();
 }
 
-// Seven line formats share this listener:
+// Nine line formats share this listener:
 //   "C"                            -- turn off every pixel and reset all
 //                                     retained layer state
 //   "L"                            -- read the LM358 photoresistor (A0) and
@@ -85,6 +115,11 @@ void setup() {
 //                                     point (always lit) plus a trail point
 //                                     list, also length-prefixed, that
 //                                     blinks with the episode layer
+//   "T:N:x,y,v;x,y,v;..."          -- set the transient "thinking" layer:
+//                                     up to 4 points, each a shade of
+//                                     yellow scaled by its own brightness
+//                                     v (0-255), always lit until the next
+//                                     "D:" implicitly clears it
 //
 // Reads directly into a fixed char buffer (no String involved anywhere in
 // this file) so a long line never triggers a heap allocation -- see
@@ -163,6 +198,22 @@ void loop() {
             agent.y = (int8_t)atoi(comma + 1);
             ok = ledBoardSetDynamicLayer(agent, trail, trailCount);
           }
+        }
+      }
+    } else if (lineBuf[0] == 'T' && lineBuf[1] == ':') {
+      char* body = lineBuf + 2;
+      char* headColon = strchr(body, ':');
+      if (headColon != nullptr) {
+        *headColon = '\0';
+        int expectedCount = atoi(body);
+        char* pointsStr = headColon + 1;
+
+        LedPoint points[kMaxThinkingPoints];
+        uint8_t brightness[kMaxThinkingPoints];
+        int count = parseThinkingPoints(pointsStr, points, brightness, kMaxThinkingPoints);
+
+        if (count == expectedCount) {
+          ok = ledBoardSetThinkingLayer(points, brightness, count);
         }
       }
     } else if (lineBuf[0] == 'F' && lineBuf[1] == ':') {

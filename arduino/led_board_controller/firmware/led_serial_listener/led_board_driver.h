@@ -22,6 +22,10 @@ struct LedPoint {
 constexpr int kMaxBoundaryPoints = 64;
 constexpr int kMaxTrailPoints = 16;
 
+// One candidate per action (left/right/up/down) -- see
+// ledBoardSetThinkingLayer.
+constexpr int kMaxThinkingPoints = 4;
+
 void ledBoardInit();
 bool ledBoardSetPixel(int x, int y);
 
@@ -70,6 +74,21 @@ bool ledBoardSetEpisodeLayer(const LedPoint* boundary, int boundaryCount, LedPoi
 // step. Boards without per-pixel color/retained state (e.g. monochrome
 // MAX7219) return false.
 bool ledBoardSetDynamicLayer(LedPoint agent, const LedPoint* trail, int trailCount);
+
+// Sets a transient "thinking" overlay: up to kMaxThinkingPoints points,
+// each a shade of yellow scaled by its own brightness (0-255), always lit
+// (not blinked) until replaced. Composited on every render() like the
+// agent -- unlike the boundary/target/trail blink group, this is meant to
+// be readable for the short window it's shown, not power-saving. A call to
+// ledBoardSetDynamicLayer implicitly clears it (thinkingCount reset to 0)
+// as a side effect, so a caller that lights it right before a step's real
+// dynamic-layer update doesn't need a separate "clear" command in between.
+// Passing count=0 clears it directly. Used only by
+// eval_demo_16-16-ldr-feedback.py's simulation ("perfect world") episode,
+// to preview the policy's per-action confidence just before each move.
+// Boards without per-pixel color/retained state (e.g. monochrome MAX7219)
+// return false.
+bool ledBoardSetThinkingLayer(const LedPoint* points, const uint8_t* brightness, int count);
 
 // Called on every pass through the sketch's main loop (not just when a
 // serial command arrives), so a driver that needs to animate on its own

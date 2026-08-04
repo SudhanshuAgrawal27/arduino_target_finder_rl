@@ -22,6 +22,9 @@ class DeterministicPolicy:
     def act(self, observation):
         return self.model.act_deterministic(observation), None, None, None
 
+    def action_probs(self, observation):
+        return self.model.action_probs(observation)
+
 
 def run_eval(env_kwargs, n_episodes, seed, engine="mlp_network", model=None):
     """Run n_episodes under `engine` and return summary stats.
