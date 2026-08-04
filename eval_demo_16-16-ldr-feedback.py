@@ -354,10 +354,19 @@ def main(cfg):
         maxlen=env.history_length,
     )
 
-    # step_delay_seconds=0: ldr_proximity's own settle wait already paces
-    # every step -- an extra delay here would just double up the pause.
+    # ldr_proximity's own settle wait (cfg.ldr_linger_seconds) already
+    # pauses every step, but it must stay fixed at whatever value
+    # eval_ldr_sweep.py --calibrate used -- the calibration curve is only a
+    # valid reference for readings that settle the same duration, so it
+    # can't be slowed down just to make the demo read better. Instead, top
+    # up the *visible* per-step pause with however much of
+    # cfg.step_delay_seconds that settle wait doesn't already cover, so a
+    # viewer sees the same overall pace here as in the perfect-world run
+    # above -- only the proximity source differs, not the rhythm of play.
+    real_step_delay_seconds = max(0.0, cfg.step_delay_seconds - cfg.ldr_linger_seconds)
     real_display = LedGridDisplay16x16(
-        ser, trail_length=env.history_length, boundary_margin=cfg.boundary_margin, show_target=False,
+        ser, trail_length=env.history_length, boundary_margin=cfg.boundary_margin,
+        step_delay_seconds=real_step_delay_seconds, show_target=False,
     )
     real_trajectory = run_simulation(env=env, engine="mlp_network", network=network, on_step=real_display.update)
 
