@@ -1,218 +1,127 @@
-# Grid Search RL
+# Blind Target Search
 
-An agent learns to find an unknown target on a grid, guided only by a coarse proximity signal — no target coordinates are ever revealed to it.
+*Learning to find a hidden target with reinforcement learning — then finding it for real, with an Arduino and a light sensor.*
 
-## Task setup
+## The problem
 
-- A fixed **16x16 global grid**, bottom-left indexed at `(0, 0)`. The **target** is fixed at the grid's center, `(8, 8)`.
-- Each **problem instance** picks a random **8x8 subgrid** of the global grid, constrained so it always contains the global target (with correct edge handling — the subgrid's origin is sampled from the range that keeps both the subgrid in-bounds and the target inside it).
-- Within that subgrid, a random **start** point is chosen for the agent (never exactly on the target).
-- Both the target's position *within the subgrid* (its local coordinates) and the start point are only known internally to the environment — **the agent never observes the target's location**, in either global or local coordinates. The task is a search problem: find the target using only movement and the feedback described below.
+A target sits at the center of a fixed 16×16 grid. Each episode drops an agent somewhere inside a random 8×8 window of that grid — a window that always contains the target, but the agent is never told where. All it gets back each step is a "warmth" reading: strong near the target, fading to nothing a couple of cells out, and completely silent beyond that.
 
-## Environment
+It's a blind search, like an ant following a faint scent trail to a sugar cube — no map, no coordinates, just a signal that gets stronger or weaker depending on which way it moves.
 
-Implemented in [`simulator.py`](simulator.py) as `GridEnvironment`.
+<p align="center"><img src="assets/grid-image.png" width="560" alt="Grid diagram: target with a two-ring proximity halo, a dashed start square, elsewhere blank"></p>
 
-- `GridEnvironment(grid_size=16, subgrid_size=8, score_radius=2, max_steps=100, history_length=4, seed=None)` — constructs the environment and generates the first problem instance.
-- `reset(seed=None)` — starts a new episode: fresh random subgrid placement and start point, drawn from the environment's own random stream (so repeated calls give different instances). Pass `seed=` to reproduce one specific instance.
-- `perform_action(action)` — `action` is one of `"left" | "right" | "up" | "down"`. Moves the agent one cell if legal; moves that would leave the subgrid are silently no-ops. Returns the new observation (see below).
-- `get_state()` — returns the current observation.
-- `env.score` — the scalar reward for the most recent step (see [Reward](#reward)).
-- `env.terminated` / `env.truncated` — episode-end flags (see [Episode termination](#episode-termination)).
-- `render()` — prints the current 8x8 subgrid as text (`A` = agent, `T` = target, `X` = agent at target).
+We train a PPO policy to solve this purely in simulation. Then we run the same policy for real: an LED marks the agent's position on a physical grid, and a photoresistor (LDR) pointed at the target's LED stands in for the proximity signal — the policy reacts to real, noisy light instead of a computed distance.
 
-### Observation
+<p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
 
-The agent's observation is a sliding window of the **last `history_length` (default 4) `(x, y, score)` readings**, oldest first — local coordinates only, no target information. Before enough real steps have happened, the window is padded by repeating the initial reading.
+The policy and the environment both live on a host machine in Python. The Arduino has no game logic at all — it just lights whatever the host tells it to, and reports back what the LDR reads. Training never touches this link; it's used only for evaluation.
 
-The window exists because the agent has no other way to tell whether its last move helped: a single instantaneous `(x, y, score)` reading doesn't reveal a trend, but a short history lets the agent (or a recurrent policy layered on top of it) infer "am I getting warmer."
+## Docker Setup
 
-### Reward
+Training and evaluation run inside a CUDA-enabled container so the environment (PyTorch, Hydra, accelerate, the Arduino CLI for firmware verification) is reproducible across machines.
 
-Two distinct signals, kept separate on purpose — `score` (what the agent observes) and `reward` (what training optimizes):
-
-**`score`** — a persistent, distance-graded "warmth" reading, based on Manhattan (L1) distance to the target (chosen over Chebyshev so every legal orthogonal move changes it by exactly 1, guaranteeing a strictly-warming move always exists): `1.0` at the target, decreasing linearly to `0` at the edge of `score_radius` (default 2: distance 1 → 0.667, distance 2 → 0.333), and `0` beyond it. It's a pure function of position — the same cell always reads the same value — so the observation history carries a followable gradient the agent can hill-climb.
-
-**`reward`** — the PPO training signal for the most recent step:
-
-| Condition | Reward |
-|---|---|
-| Reached the target | `success_bonus` (default 1.0) |
-| Otherwise | `score(new) − score(old)` (potential-based shaping — positive for closing in, negative for backing off) |
-| ...and the new cell is outside `score_radius` (`score == 0`) | additionally `− step_penalty` (default 0.01) |
-| ...and the action was illegal (walked into the subgrid edge, a no-op) | additionally `− wall_penalty` (default 0.05) |
-
-Because the shaping term is a difference of a position-only potential, any loop or lingering near the target telescopes to ~0 — the agent can't farm reward by circling in the radius instead of pushing on to the target. `step_penalty` nudges it out of empty space; `wall_penalty` discourages wasting a move bumping a wall (and stacks with `step_penalty` if that wasted move also leaves it outside the radius).
-
-### Episode termination
-
-Two distinct end conditions, both tracked separately because they matter differently for training:
-
-- **`terminated`** — the agent actually reached the target. A true end of episode; there is no future to bootstrap.
-- **`truncated`** — `max_steps` (default 100) was hit without reaching the target. An artificial cutoff; the episode didn't actually conclude, so a value estimate for the final state (rather than 0) should be used when bootstrapping returns.
-
-### Manual play
-
-[`play_manual.py`](play_manual.py) runs one episode with a human typing actions at the terminal, printing the board after every move:
+**Key files:** [`docker/Dockerfile`](docker/Dockerfile), [`docker/build_docker.sh`](docker/build_docker.sh), [`docker/run_docker.sh`](docker/run_docker.sh), [`docker/docker_setup.md`](docker/docker_setup.md)
 
 ```
-python3 play_manual.py
+./docker/build_docker.sh   # build the image once
+./docker/run_docker.sh     # start the container, mounting the repo at /workspace
 ```
 
-### Tests
+If you're passing an Arduino through from WSL2, see [`docker/reconnect_usb.sh`](docker/reconnect_usb.sh) — it re-attaches the board's USB-serial device to a running container after a driver reinstall or unplug/replug, without recreating the container.
 
-[`test_simulator.py`](test_simulator.py) covers: edge conditions of subgrid/target placement across many random seeds, movement boundary clamping in all four directions, the one-time radius bonus, the terminated/truncated distinction, `reset()` behavior (fresh instance per call, reproducibility with a seed), the observation history window (padding and sliding), and full `run_simulation` episodes (both reaching the target and hitting the step cap).
+## Arduino Setup
+
+One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver.
+
+**Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/README.md`](arduino/README.md)
+
+Set the active driver in `board_config.h`:
+```c
+#define ACTIVE_BOARD BOARD_WS2812B_MATRIX   // or BOARD_MAX7219_MATRIX
+```
+then flash `led_serial_listener.ino` from the Arduino IDE, or with `arduino-cli` (installed in the Docker image):
+```
+arduino-cli compile --fqbn arduino:avr:uno arduino/led_board_controller/firmware/led_serial_listener
+arduino-cli upload  --fqbn arduino:avr:uno -p <port> arduino/led_board_controller/firmware/led_serial_listener
+```
+See `arduino/README.md` for the full serial protocol (one line in, `OK`/`ERR` back) that the Python side speaks over USB at 115200 baud.
+
+## Circuit Setup
+
+*Wiring diagram — coming soon.* In the meantime, pin connections (MAX7219 matrix, WS2812B panel, LM358 photoresistor module) are listed in [`arduino/README.md`](arduino/README.md#layout).
+
+## RL Framework
+
+**Environment** — [`simulator.py`](simulator.py)'s `GridEnvironment`: places the subgrid/target/start, steps the agent (`left`/`right`/`up`/`down`), and reports back a `(x, y, score)` reading. `score` is a pure function of position — 1.0 at the target, decaying linearly to 0 at `score_radius` (default 2) — so a short history of readings lets the agent tell whether its last move helped.
+
+**Network** — [`network.py`](network.py)'s `ActorCritic`, a shared-trunk MLP:
+```
+(x, y, score) × window_length  →  Linear→ReLU × num_layers  ─┬─ policy head → 4 action logits
+                                                               └─ value head  → 1 scalar
+```
+
+**Training signal** — [`ppo.py`](ppo.py) implements clipped-surrogate PPO with GAE advantages (computed per episode in [`rollout.py`](rollout.py)):
 
 ```
-pytest test_simulator.py -v
+δ_t = r_t + γ·V(s_t+1) − V(s_t)                A_t = δ_t + (γλ)·δ_t+1 + (γλ)²·δ_t+2 + ...
+
+r_t(θ) = π_θ(a_t|s_t) / π_θold(a_t|s_t)        L_CLIP(θ) = E_t[ min(r_t·A_t, clip(r_t, 1−ε, 1+ε)·A_t) ]
+
+L(θ) = −L_CLIP(θ) + c1·(V(s_t) − R_t)² − c2·entropy(π_θ)
 ```
 
-## Network
+`V(s_final) = 0` when the episode actually `terminated` (target reached); it's bootstrapped from the critic when it was `truncated` by the step cap instead — this is why the environment tracks the two separately.
 
-[`network.py`](network.py) — `ActorCritic`, a shared-trunk MLP over a (possibly trimmed) observation window:
-
+Try it by hand, or run the test suite:
 ```
-input: flattened (x, y, score) × window_length = 12 floats (window_length=4), x/y normalized to [0,1]
-  → Linear(12→64) → ReLU → Linear(64→64) → ReLU → ... (num_layers hidden blocks)
-    ├─ policy head: Linear(64→4)  (action logits)
-    └─ value head:  Linear(64→1)  (scalar state value)
+python3 play_manual.py            # play one episode yourself from the terminal
+pytest test_simulator.py test_network.py test_eval_lib.py -v
 ```
-
-`window_length` (`network.window_length`, e.g. via `python3 train.py network.window_length=2`) is independent of the environment's `history_length`: the environment can produce a longer history than the network actually consumes, in which case only the most recent `window_length` readings are fed in (see `obs_to_tensor`). Must be `<= env.history_length`; `train.py` checks this at startup. `num_layers` (`network.num_layers`, default 2) controls how many hidden `Linear(hidden_dim→hidden_dim) → ReLU` blocks the trunk has (the first block is `Linear(window_length×3→hidden_dim)`), for trading network depth against width. All three of `hidden_dim`, `window_length`, and `num_layers` are plain Hydra config fields, overridable from the command line same as any other (e.g. `network.hidden_dim=32 network.num_layers=3`).
-
-Weights use the standard PPO init: orthogonal, gain √2 on hidden layers, gain 1 on the value head, and a small gain (0.01) on the policy head so the initial policy starts close to uniform. `act()` samples an action (used during rollout collection); `act_deterministic()` picks the argmax action (used for eval); `get_value()` returns just the critic's estimate (used to bootstrap GAE at a truncated episode's end); `evaluate_actions()` recomputes log-probs/values/entropy under the current parameters with gradients (used during the PPO update).
 
 ## Training
 
-`run_simulation(env, engine, network)` in `simulator.py` supports `engine="manual"` (interactive) and `engine="mlp_network"` (drives the env with `network.act(observation)` each step, storing `log_prob`/`value` per step for PPO). Training and eval are separate scripts, both driven by [Hydra](https://hydra.cc) configs in `conf/`:
+**Key files:** [`train.py`](train.py), [`conf/config.yaml`](conf/config.yaml) (fast smoke test), [`conf/config_train.yaml`](conf/config_train.yaml) (full 150-epoch run), [`run_ablation.py`](run_ablation.py)
 
-- **[`train.py`](train.py)** — one epoch = collect `training.episodes_per_epoch` episodes serially (one `GridEnvironment` at a time, reused across episodes only in the sense that a fresh one is constructed per episode — see [`rollout.py`](rollout.py)), compute GAE per episode, flatten into one batch, run `ppo.update_epochs` passes of minibatch gradient descent ([`ppo.py`](ppo.py)), run a quick deterministic eval pass ([`eval_lib.py`](eval_lib.py)), then checkpoint. Uses `accelerate` for device placement, seeding (`accelerate.utils.set_seed`), and checkpointing (`accelerator.save_state`).
-- **[`eval_random.py`](eval_random.py)** — standalone: loads a checkpoint's sibling `config.yaml` to reconstruct the exact network/env architecture, loads the weights via `accelerator.load_state`, and runs deterministic evaluation episodes independently of training, with its own seed.
+One epoch = collect `episodes_per_epoch` episodes → GAE → a few epochs of minibatch PPO updates → a deterministic eval pass → checkpoint. Everything is a [Hydra](https://hydra.cc) config field, overridable on the command line.
 
-Run with defaults (1 epoch × 1000 episodes):
+Logging goes to [Weights & Biases](https://wandb.ai) — run `wandb login` once, then:
 ```
-python3 train.py
+python3 train.py                                    # fast smoke test (1 epoch)
+python3 train.py --config-name config_train         # full run, 3 seeds by default (cfg.seeds)
+python3 train.py training.num_epochs=5 ppo.learning_rate=1e-4   # override any field
+accelerate launch --config_file conf/accelerate.yaml train.py --config-name config_train
 ```
-Override any field from the command line:
-```
-python3 train.py training.num_epochs=5 ppo.learning_rate=1e-4
-```
-Evaluate a saved checkpoint:
-```
-python3 eval_random.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1 episodes=200 seed=7
-```
+Set `conf/wandb_workspace_url.txt` to your own saved multi-run workspace view to have `train.py` print a link to it alongside each run's URL.
 
-### Fixed evaluation dataset
-
-`eval_random.py` draws fresh random episodes each run (reproducible via `seed`, but the *set* of problem instances isn't fixed across different `episodes`/`seed` choices). For comparing checkpoints against each other on identical, difficulty-labeled problems, use the fixed dataset instead:
-
-- [`build_eval_fixed_dataset.py`](build_eval_fixed_dataset.py) generates `eval_fixed_dataset.json`: 100 problem instances stratified across 6 categories crossing **distance tier** (short 1–4 / medium 5–8 / long 9–14 Manhattan steps from start to target) and **target locality** (central — target's `score_radius` warmth halo is fully unclipped by the subgrid edge — vs boundary — halo clipped on at least one side). Each entry is just a seed plus its recorded category/geometry; regenerate with `python3 build_eval_fixed_dataset.py` (deterministic given `GENERATION_SEED`, already committed so you normally don't need to).
-- [`eval_fixed_dataset.py`](eval_fixed_dataset.py) loads a checkpoint and replays every instance in the dataset, reporting overall stats plus a per-category breakdown:
-  ```
-  python3 eval_fixed_dataset.py checkpoint_dir=trained_models/2026-07-06_14-30-05/epoch_1
-  ```
-  This is what answers "is this checkpoint worse on long-distance or boundary-target problems specifically," rather than just an aggregate success rate.
-
-### LED matrix demo
-
-[`eval_demo_8-8.py`](eval_demo_8-8.py) runs one episode from a checkpoint and mirrors the target/agent/trail live onto a physical 8x8 LED matrix, via `simulator.run_simulation`'s `on_step` callback:
+Checkpoints land in `trained_models/<run_name>_seed<seed>/epoch_N/`, one directory per seed, each with its own resolved `config.yaml` so an eval script can reconstruct the exact architecture later. [`run_ablation.py`](run_ablation.py) sweeps the `conf/config_train_h*_l*_hist*.yaml` architecture configs across `cfg.seeds`, skipping any checkpoint that already exists:
 ```
-python3 eval_demo_8-8.py checkpoint_dir=... seed=7
+python3 run_ablation.py --parallel 4
 ```
 
-[`eval_demo_16-16.py`](eval_demo_16-16.py) is the same idea on the 16x16 WS2812B panel, but in **global** board coordinates (`env.local_to_global`) so the whole grid is visible, not just the current subgrid:
-```
-python3 eval_demo_16-16.py checkpoint_dir=... seed=7
-```
-Shows, simultaneously: the current subgrid's boundary (dim green, blinking ~33Hz), the target (dim blue, blinking ~33Hz), the agent's trail (dim red, also blinking, and cleared once the agent actually reaches the target), and the agent itself (full white `(255,255,255)`, always lit -- the brightest, most current-hungry element on the board since it's the only one that never blinks; see `power_model.py`). Reports steps/return/success plus an estimated LED count / power draw at the end of the run (see [`arduino/led_board_controller/power_model.py`](arduino/led_board_controller/power_model.py)); pass `dry_run=true` to get that same report -- including the real episode's boundary/trail geometry -- without any LED board attached at all.
+## Evaluation
 
-[`eval_ldr_sweep.py`](eval_ldr_sweep.py) is a standalone hardware calibration tool, unrelated to any checkpoint: it sweeps a full-white LED across the 8x8 window centered on a target point (`--target x y`, default `(8, 8)`). At each cell it reads an LED-off baseline, then an LED-on reading, each after a `--linger-seconds` (default `0.25`) settle -- the off phase exists because the photoresistor decays (darkens) much slower than it brightens, so without a reset a neighboring cell's residual signal would bleed into the next reading. Plots the resulting grid of `(on - baseline)` deltas as a heatmap (`ldr_sweep_plot.png`). `--dry-run` still moves the LEDs through the full sweep but skips reading the LDR (every delta is `0`) -- useful for checking the sweep pattern itself before the LDR circuit exists. Lights each cell via `set_dynamic_layer` (the same agent layer `eval_demo_16-16.py` uses) rather than a raw `P:` pixel write -- the agent layer is retained firmware state that the board's ~33Hz autonomous blink tick redraws every cycle, whereas a `P:` pixel isn't tracked anywhere and gets erased by the very next tick's `strip.clear()`.
-```
-python3 eval_ldr_sweep.py --target 10 3 --linger-seconds 2
-```
+**Key files:** [`eval_random.py`](eval_random.py), [`build_eval_fixed_dataset.py`](build_eval_fixed_dataset.py), [`eval_fixed_dataset.py`](eval_fixed_dataset.py)
 
-`--calibrate` switches from a diagnostic heatmap to producing the curve [`eval_demo_16-16-ldr-feedback.py`](eval_demo_16-16-ldr-feedback.py) actually needs: ONE ambient baseline (not per-cell), then the full window swept `--calibration-runs` times (default `3`), pooling every reading by Manhattan distance from the target (0, 1, 2, and "background" for everything past `--score-radius`, default `2`, matching every checkpoint in this repo -- see `simulator.py`'s `proximity_score`) and averaging within each bucket to smooth out single-run noise. Saves the result to `--calibration-file` (default `ldr_calibration.json`).
+```
+python3 eval_random.py checkpoint_dir=trained_models/<run>/epoch_150 episodes=200 seed=7
+python3 eval_fixed_dataset.py checkpoint_dir=trained_models/<run>/epoch_150
+```
+`eval_random.py` draws fresh random episodes each run. `eval_fixed_dataset.py` instead replays the same 100 committed problem instances every time (`eval_fixed_dataset.json`, stratified by distance and by whether the target sits near the subgrid's edge), so two checkpoints can be compared on identical problems and broken down by category rather than just an aggregate success rate.
+
+## Evaluation with Arduino
+
+**Key files:** [`eval_ldr_sweep.py`](eval_ldr_sweep.py), [`eval_demo_16-16-ldr-feedback.py`](eval_demo_16-16-ldr-feedback.py), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
+
+This is the closed-loop version of evaluation: the policy's proximity reading comes from a real LDR pointed at the target LED instead of the simulator's distance formula. Two steps:
+
+**1. Calibrate once, offline.** A probe LED sweeps the 8×8 window around the target; the LDR's brightness delta from a single ambient baseline is recorded at every cell and pooled by Manhattan distance into the same four levels the trained policy expects.
 ```
 python3 eval_ldr_sweep.py --calibrate
 ```
-Two layers of noise handling before that final average, both added after real runs showed both failure modes in practice: (1) `set_dynamic_layer`'s reply is checked per cell -- if the board still says `ERR` after its own internal retries, the LED never actually reached that cell (still sitting at the previous one), so that reading is skipped rather than trusted; (2) `reject_outliers` (median-absolute-deviation based) drops statistically-wild survivors -- readings that got an `OK` but were still physically implausible (e.g. a "1 cell away" delta reading dimmer than "background") -- before averaging each bucket. The connection is also closed and reopened between runs (not within one, which would defeat the point of a single fixed baseline) on the theory that reopening the port's Arduino auto-reset would flush accumulated serial buffer state; empirically this did *not* reduce the per-command failure rate (still ~10% of `set_dynamic_layer` calls exhausted retries, roughly flat across all three runs) -- see the note below.
+<p align="center"><img src="ldr_calibration_plot.png" width="420" alt="Calibration plot: LDR reading delta as a function of distance from the target"></p>
 
-[`eval_demo_16-16-ldr-feedback.py`](eval_demo_16-16-ldr-feedback.py) is `eval_demo_16-16.py` with the policy's proximity observation swapped for a real LDR reading -- game mechanics (movement, reaching the target) are untouched; only the "how warm am I" signal the network sees changes. Always runs two episodes back to back, same seed (so the same subgrid/start/target) for both: first a "perfect world" episode with the environment's normal noiseless proximity, shown on the board with the target visibly lit -- purely a reference for how many steps the noiseless optimum takes, never touches the LDR. Then the real LDR-driven episode -- draws the boundary but leaves the target deliberately unlit this time (showing it would give away what the agent is supposed to be sensing for itself), takes a single ambient baseline reading for the whole game, then on every step lights the agent alone, waits `ldr_linger_seconds`, and nearest-neighbor-classifies the reading against `ldr_calibration.json` (from `eval_ldr_sweep.py --calibrate`, run once beforehand) to get one of the policy's trained discrete scores. Once both finish, reports steps/return/success/power for both plus the step-count delta between them.
+**2. Run the live episode.** Two passes with the same seed: a noiseless "perfect world" reference pass (target visibly lit), then the real LDR-driven pass (target deliberately unlit, so the board never gives away what the sensor has to find on its own).
 ```
-python3 eval_ldr_sweep.py --calibrate
-python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=... seed=7
+python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=trained_models/<run>/epoch_150 seed=7
 ```
-
-See [`arduino/README.md`](arduino/README.md) for the LED hardware/firmware side (including the serial protocol all these speak) and the WSL2/Docker USB setup this needs.
-
-### Accelerate config
-
-Running `python3 train.py` directly is fine — `Accelerator()` auto-detects the machine (single process, GPU if present). For an explicit, version-controlled setup, [`conf/accelerate.yaml`](conf/accelerate.yaml) pins a single-process, CPU-only run and is passed via `accelerate launch`:
-```
-accelerate launch --config_file conf/accelerate.yaml train.py training.num_epochs=5
-```
-It's CPU-pinned on purpose: the network is a tiny 12→64→64 MLP, so the GPU buys essentially nothing and the per-step single-observation host↔device transfers during rollout are pure overhead — the real bottleneck (serial episode simulation) lives on CPU regardless. Flip `use_cpu: false` if the network is ever scaled up enough to be GPU-bound. Note that metrics are reproducible *within* a device but not bit-identical across CPU vs GPU (float ops differ).
-
-### Output layout
-
-```
-trained_models/<run_name>_seed<seed>/   one dir per (run, seed); name = [timestamp_]<output.run_name>_seed<seed>
-├── config.yaml                      fully-resolved Hydra config for this run, plus seed_used
-├── epoch_1/                         accelerate checkpoint (model.safetensors, optimizer.bin, random_states)
-├── epoch_2/
-└── ...
-```
-
-### Seeds and multi-seed runs
-
-Training is seeded per-run from `cfg.seeds` (a list, default `[42, 43, 44]`): `train.py` trains one model per seed, each into its own `..._seed<seed>` directory, so a single invocation produces a whole multi-seed ablation point. Override to one seed for parallel launching (`seeds=[43]`). `output.timestamp` (default `true`) prepends a timestamp; set it `false` for a deterministic, restart-skippable directory name.
-
-PPO is high-variance across seeds — different seeds land in different behavioral basins — so a *single* run's success rate can under- or over-state an architecture by several points. Reporting ≥3 seeds is what makes an architecture comparison trustworthy.
-
-**Init-seed isolation.** Orthogonal init consumes a *width/depth-dependent* number of `torch` draws, which would otherwise leave the downstream exploration-sampling and minibatch-shuffle RNG at an architecture-dependent offset — so "the same seed" wouldn't actually be a controlled comparison across architectures. `train.py` re-seeds `torch` with `torch.manual_seed(seed)` immediately after building the model, making that downstream stream depend only on `seed`: two architectures at the same seed then see identical exploration/shuffle noise, while different seeds still vary the whole run (init included). See the tests in [`test_network.py`](test_network.py).
-
-### Running the architecture ablation
-
-[`run_ablation.py`](run_ablation.py) trains every (architecture, seed) combination — the nine `conf/config_train_h*_l*_hist*.yaml` configs × seeds `{42, 43, 44}` — a fixed number at a time, skipping any whose `epoch_150` checkpoint already exists (safe to restart):
-
-```
-python3 run_ablation.py --dry-run          # list the jobs
-python3 run_ablation.py --parallel 4       # 4 concurrent, 2 threads each (CPU-pinned)
-```
-
-New fixed-code runs land in `<arch>_seed<seed>/`; the earlier pre-init-fix runs are kept under the `_s<seed>` suffix so the two never collide.
-
-### Reproducibility
-
-`train_one_seed` calls `accelerate.utils.set_seed(seed)` (seeding `torch`/`numpy`/`random`) plus `simulator.set_global_seed(seed)` for the env's `random` stream, then applies the init-seed isolation above. Episode geometry, rollout collection, and minibatch shuffling are all reproducible from `seed`. `eval_random.py` takes its own `seed` for the same guarantee on evaluation runs, independent of whatever seed trained the checkpoint.
-
-### Core PPO formulas
-
-**Advantage (GAE)**, from the TD errors `δ_t = r_t + γ·V(s_{t+1}) − V(s_t)`:
-
-```
-A_t = δ_t + (γλ)·δ_{t+1} + (γλ)²·δ_{t+2} + ...
-```
-
-`V(s_final) = 0` when the step was `terminated`; when `truncated`, `V(s_final)` is estimated from the critic instead — this is exactly why the environment tracks the two separately.
-
-**Clipped surrogate policy objective**:
-
-```
-r_t(θ) = π_θ(a_t|s_t) / π_θ_old(a_t|s_t)
-L_CLIP(θ) = E_t[ min( r_t(θ)·A_t, clip(r_t(θ), 1−ε, 1+ε)·A_t ) ]
-```
-
-`r_t(θ)·A_t` is the importance-sampling-corrected surrogate for the standard policy gradient (`∇θ log π_θ(a_t|s_t)·A_t`), which lets the same rollout batch be reused for several epochs of gradient descent. The clip removes the incentive to push the policy ratio outside `[1−ε, 1+ε]` in either direction, bounding how far a single batch of data can move the policy — a cheap stand-in for TRPO's explicit trust-region constraint.
-
-**Total loss**:
-
-```
-L(θ) = −L_CLIP(θ) + c1·(V_φ(s_t) − R_t)² − c2·entropy(π_θ(·|s_t))
-```
-
-### Open design questions for the training loop (not yet decided)
-
-- **Search mechanism**: whether the 4-step observation window alone is enough for the policy to search effectively, or whether a recurrent policy (LSTM/GRU carrying hidden state across the full episode) should sit on top of it. `history_length` is a tunable constructor parameter either way.
-- Whether to add a small per-step penalty to encourage shorter paths once the agent is already near the target.
-- Whether potential-based reward shaping (`γ·Φ(s') − Φ(s)` with `Φ = -distance_to_target`) is worth adding as a denser reward alongside the current milestone-based score. The environment already knows `target_local` internally (it's just never exposed to the agent as an observation), so it could compute this shaping term without breaking the "no target info in the observation" rule — not implemented yet, just noting it's compatible if the sparse 0/0.5/1 signal proves too hard to learn from.
+Reports steps/return/success for both passes plus the step-count gap between them. See [`arduino/README.md`](arduino/README.md) for the serial protocol and a known hardware reliability caveat (occasional dropped/corrupted commands under load, mitigated with jittered retries but not yet fully closed).
