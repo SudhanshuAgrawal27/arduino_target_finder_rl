@@ -1,6 +1,6 @@
 # Blind Target Search
 
-*Learning to find a hidden target with reinforcement learning — then finding it for real, with an Arduino and a light sensor.*
+*Learning to find a hidden target with reinforcement learning, then evaluating the trained policy on an Arduino with a light sensor.*
 
 ## The problem
 
@@ -10,11 +10,11 @@ It's a blind search, like an ant following a faint scent trail to a sugar cube �
 
 <p align="center"><img src="assets/grid-image.png" width="560" alt="Grid diagram: target with a two-ring proximity halo, a dashed start square, elsewhere blank"></p>
 
-We train a PPO policy to solve this purely in simulation. Then we run the same policy for real: an LED marks the agent's position on a physical grid, and a photoresistor (LDR) pointed at the target's LED stands in for the proximity signal — the policy reacts to real, noisy light instead of a computed distance.
+We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on physical hardware: an LED marks the agent's position on a grid, and a photoresistor (LDR) pointed at the target's LED stands in for the proximity signal — the policy reacts to a live light reading instead of a computed distance.
 
 <p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
 
-The policy and the environment both live on a host machine in Python. The Arduino has no game logic at all — it just lights whatever the host tells it to, and reports back what the LDR reads. Training never touches this link; it's used only for evaluation.
+The policy and the environment both live on a host machine in Python; the Arduino only drives the LED display and reports the LDR reading.
 
 ## Docker Setup
 
@@ -27,8 +27,6 @@ Training and evaluation run inside a CUDA-enabled container so the environment (
 ./docker/run_docker.sh     # start the container, mounting the repo at /workspace
 ```
 
-If you're passing an Arduino through from WSL2, see [`docker/reconnect_usb.sh`](docker/reconnect_usb.sh) — it re-attaches the board's USB-serial device to a running container after a driver reinstall or unplug/replug, without recreating the container.
-
 ## Arduino Setup
 
 One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver.
@@ -39,16 +37,18 @@ Set the active driver in `board_config.h`:
 ```c
 #define ACTIVE_BOARD BOARD_WS2812B_MATRIX   // or BOARD_MAX7219_MATRIX
 ```
-then flash `led_serial_listener.ino` from the Arduino IDE, or with `arduino-cli` (installed in the Docker image):
-```
-arduino-cli compile --fqbn arduino:avr:uno arduino/led_board_controller/firmware/led_serial_listener
-arduino-cli upload  --fqbn arduino:avr:uno -p <port> arduino/led_board_controller/firmware/led_serial_listener
-```
-See `arduino/README.md` for the full serial protocol (one line in, `OK`/`ERR` back) that the Python side speaks over USB at 115200 baud.
+Then, in the Arduino IDE:
+1. Open `led_serial_listener.ino` (the IDE loads `board_config.h` and the driver `.cpp` files alongside it automatically).
+2. Under **Tools → Board**, select your board (Arduino Uno).
+3. Under **Tools → Port**, select the port the board is connected to.
+4. Click **Upload**.
+5. If you open the Serial Monitor to watch the board directly, set its baud rate to `115200` to match the sketch.
+
+If you're passing an Arduino through from WSL2, [`docker/reconnect_usb.sh`](docker/reconnect_usb.sh) re-attaches the board's USB-serial device to a running container after a driver reinstall or unplug/replug, without recreating the container.
 
 ## Circuit Setup
 
-*Wiring diagram — coming soon.* In the meantime, pin connections (MAX7219 matrix, WS2812B panel, LM358 photoresistor module) are listed in [`arduino/README.md`](arduino/README.md#layout).
+*Coming soon.*
 
 ## RL Framework
 
@@ -124,4 +124,4 @@ python3 eval_ldr_sweep.py --calibrate
 ```
 python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=trained_models/<run>/epoch_150 seed=7
 ```
-Reports steps/return/success for both passes plus the step-count gap between them. See [`arduino/README.md`](arduino/README.md) for the serial protocol and a known hardware reliability caveat (occasional dropped/corrupted commands under load, mitigated with jittered retries but not yet fully closed).
+Reports steps/return/success for both passes plus the step-count gap between them.
