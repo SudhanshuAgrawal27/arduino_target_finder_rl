@@ -27,11 +27,21 @@ Training and evaluation run inside a CUDA-enabled container so the environment (
 ./docker/run_docker.sh     # start the container, mounting the repo at /workspace
 ```
 
+[`test_docker_setup.py`](test_docker_setup.py) is a quick offline smoke test (no network, no downloads) that the image has CUDA/PyTorch working correctly. Run it inside the container:
+```
+pytest test_docker_setup.py -v
+```
+
 ## Arduino Setup
 
-One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver.
+One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver. Two boards are supported — an 8×8 MAX7219 matrix and a 16×16 WS2812B panel — plus an LM358 photoresistor module for proximity feedback.
 
-**Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/README.md`](arduino/README.md)
+**Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
+
+**Wiring:**
+- MAX7219 matrix: `DIN → 12`, `CLK → 11`, `CS → 10`
+- WS2812B panel: data line → pin `6` (through a 330Ω series resistor), power from `5V`/`GND`
+- LM358 photoresistor module: `VCC → 5V`, `GND → GND`, `AO → A0`
 
 Set the active driver in `board_config.h`:
 ```c
@@ -44,7 +54,13 @@ Then, in the Arduino IDE:
 4. Click **Upload**.
 5. If you open the Serial Monitor to watch the board directly, set its baud rate to `115200` to match the sketch.
 
-If you're passing an Arduino through from WSL2, [`docker/reconnect_usb.sh`](docker/reconnect_usb.sh) re-attaches the board's USB-serial device to a running container after a driver reinstall or unplug/replug, without recreating the container.
+**Connecting over WSL2/Docker:** if the board reaches the container through USB passthrough, one-time setup on the Windows host:
+1. `winget install usbipd`.
+2. `usbipd list` (admin PowerShell) to find the board's BUSID, then `usbipd bind --busid <busid>` once.
+3. `usbipd attach --wsl --busid <busid>`.
+4. Start the container with `./docker/run_docker.sh` — it detects `/dev/ttyUSB0`/`/dev/ttyACM0` and passes the device through.
+
+After that, whenever the board drops (driver reinstall, unplug/replug), reattach it with [`docker/reconnect_usb.sh`](docker/reconnect_usb.sh) instead of recreating the container.
 
 ## Circuit Setup
 
@@ -72,11 +88,19 @@ L(θ) = −L_CLIP(θ) + c1·(V(s_t) − R_t)² − c2·entropy(π_θ)
 
 `V(s_final) = 0` when the episode actually `terminated` (target reached); it's bootstrapped from the critic when it was `truncated` by the step cap instead — this is why the environment tracks the two separately.
 
-Try it by hand, or run the test suite:
+Try it by hand:
 ```
 python3 play_manual.py            # play one episode yourself from the terminal
+```
+
+## Tests
+
+**Key files:** [`test_simulator.py`](test_simulator.py), [`test_network.py`](test_network.py), [`test_eval_lib.py`](test_eval_lib.py)
+
+```
 pytest test_simulator.py test_network.py test_eval_lib.py -v
 ```
+Covers the environment (subgrid/target placement, movement clamping, termination, observation history), the network (initialization, the init-seed isolation used for multi-seed comparisons), and the deterministic eval policy. `test_docker_setup.py` is separate — see [Docker Setup](#docker-setup).
 
 ## Training
 
