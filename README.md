@@ -68,13 +68,14 @@ After that, whenever the board drops (driver reinstall, unplug/replug), reattach
 
 ## RL Framework
 
-**Environment** — [`simulator.py`](simulator.py)'s `GridEnvironment`: places the subgrid/target/start, steps the agent (`left`/`right`/`up`/`down`), and reports back a `(x, y, score)` reading. `score` is a pure function of position — 1.0 at the target, decaying linearly to 0 at `score_radius` (default 2) — so a short history of readings lets the agent tell whether its last move helped.
+**Environment** — [`simulator.py`](simulator.py)'s `GridEnvironment`: places the subgrid/target/start, steps the agent (`left`/`right`/`up`/`down`), and reports back a `(x, y, score)` reading. `score` is a pure function of position — 1.0 at the target, decaying linearly to 0 at `score_radius` — so a short history of readings lets the agent tell whether its last move helped. Defaults: `grid_size=16`, `subgrid_size=8`, `score_radius=2`, `max_steps=100`, `history_length=4`.
 
 **Network** — [`network.py`](network.py)'s `ActorCritic`, a shared-trunk MLP:
 ```
 (x, y, score) × window_length  →  Linear→ReLU × num_layers  ─┬─ policy head → 4 action logits
                                                                └─ value head  → 1 scalar
 ```
+Defaults: `window_length=4` (how many of the environment's `history_length` readings the network actually sees), `hidden_dim=128`, `num_layers=2`.
 
 **Training signal** — [`ppo.py`](ppo.py) implements clipped-surrogate PPO with GAE advantages (computed per episode in [`rollout.py`](rollout.py)):
 
@@ -87,11 +88,6 @@ L(θ) = −L_CLIP(θ) + c1·(V(s_t) − R_t)² − c2·entropy(π_θ)
 ```
 
 `V(s_final) = 0` when the episode actually `terminated` (target reached); it's bootstrapped from the critic when it was `truncated` by the step cap instead — this is why the environment tracks the two separately.
-
-Try it by hand:
-```
-python3 play_manual.py            # play one episode yourself from the terminal
-```
 
 ## Tests
 
