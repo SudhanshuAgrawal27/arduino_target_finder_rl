@@ -6,3 +6,4 @@ __pycache__/
 trained_models/
 ldr_test_plot.png
 ldr_sweep_plot.png
+assets/generate_diagrams.py
