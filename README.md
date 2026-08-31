@@ -4,13 +4,15 @@
 
 ## The problem
 
-A target sits at the center of a fixed 16×16 grid. Each episode drops an agent somewhere inside a random 8×8 window of that grid — a window that always contains the target, but the agent is never told where. All it gets back each step is a "warmth" reading: strong near the target, fading to nothing a couple of cells out, and completely silent beyond that.
+A target sits at an unknown location within an 8×8 grid. Each episode, an agent starts at a random point in that grid and must reach the target using only movement and a coarse proximity signal received after every step: a "warmth" reading, strong near the target, fading to nothing a couple of cells out, and silent beyond that. The agent's observation never includes the target's location.
 
 It's a blind search, like an ant following a faint scent trail to a sugar cube — no map, no coordinates, just a signal that gets stronger or weaker depending on which way it moves.
 
 <p align="center"><img src="assets/grid-image.png" width="560" alt="Grid diagram: target with a two-ring proximity halo, a dashed start square, elsewhere blank"></p>
 
-We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on physical hardware: an LED marks the agent's position on a grid, and a photoresistor (LDR) pointed at the target position provides the proximity signal.
+We implement this physically as a grid of LEDs, with a fixed photoresistor (LDR) reading brightness at the target's position. Since physically relocating the LDR every episode isn't practical, the target is instead fixed at the center of a larger 16×16 grid, and each episode uses a different random 8×8 subgrid (window) containing that center — which changes the target's position *relative to* the agent's local 8×8 view without ever moving the sensor. One LED lights up at a time to mark the agent's current position within that window; as it moves from cell to cell, the light reaching the fixed LDR changes with it — brighter the closer the active LED is to the target, dimmer farther away — and that brightness reading is the proximity signal the policy receives, standing in for the "warmth" described above.
+
+We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on this physical hardware.
 
 <p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
 
@@ -75,7 +77,7 @@ After that, whenever the board drops (driver reinstall, unplug/replug), reattach
 (x, y, score) × window_length  →  Linear→ReLU × num_layers  ─┬─ policy head → 4 action logits
                                                                └─ value head  → 1 scalar
 ```
-Defaults: `window_length=4` (how many of the environment's `history_length` readings the network actually sees), `hidden_dim=128`, `num_layers=2`.
+Defaults: `window_length=4` (how many of the environment's `history_length` readings the network sees), `hidden_dim=128`, `num_layers=2`.
 
 **Training signal** — [`ppo.py`](ppo.py) implements clipped-surrogate PPO with GAE advantages (computed per episode in [`rollout.py`](rollout.py)):
 
@@ -87,7 +89,7 @@ r_t(θ) = π_θ(a_t|s_t) / π_θold(a_t|s_t)        L_CLIP(θ) = E_t[ min(r_t·A
 L(θ) = −L_CLIP(θ) + c1·(V(s_t) − R_t)² − c2·entropy(π_θ)
 ```
 
-`V(s_final) = 0` when the episode actually `terminated` (target reached); it's bootstrapped from the critic when it was `truncated` by the step cap instead — this is why the environment tracks the two separately.
+`V(s_final) = 0` when the episode `terminated` (target reached); it's bootstrapped from the critic when it was `truncated` by the step cap instead — this is why the environment tracks the two separately.
 
 ## Tests
 
