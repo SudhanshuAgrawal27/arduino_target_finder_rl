@@ -10,7 +10,7 @@ It's a blind search, like an ant following a faint scent trail to a sugar cube �
 
 <p align="center"><img src="assets/grid-image.png" width="560" alt="Grid diagram: target with a two-ring proximity halo, a dashed start square, elsewhere blank"></p>
 
-We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on physical hardware: an LED marks the agent's position on a grid, and a photoresistor (LDR) pointed at the target's LED stands in for the proximity signal — the policy reacts to a live light reading instead of a computed distance.
+We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on physical hardware: an LED marks the agent's position on a grid, and a photoresistor (LDR) pointed at the target position provides the proximity signal.
 
 <p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
 
@@ -34,18 +34,18 @@ pytest test_docker_setup.py -v
 
 ## Arduino Setup
 
-One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver. Two boards are supported — an 8×8 MAX7219 matrix and a 16×16 WS2812B panel — plus an LM358 photoresistor module for proximity feedback.
+One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver. Two boards are supported — a 16×16 WS2812B panel (default) and an 8×8 MAX7219 matrix — plus an LM358 photoresistor module for proximity feedback.
 
 **Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
 
 **Wiring:**
+- WS2812B panel (default): data line → pin `6` (through a 330Ω series resistor), power from `5V`/`GND`
 - MAX7219 matrix: `DIN → 12`, `CLK → 11`, `CS → 10`
-- WS2812B panel: data line → pin `6` (through a 330Ω series resistor), power from `5V`/`GND`
 - LM358 photoresistor module: `VCC → 5V`, `GND → GND`, `AO → A0`
 
 Set the active driver in `board_config.h`:
 ```c
-#define ACTIVE_BOARD BOARD_WS2812B_MATRIX   // or BOARD_MAX7219_MATRIX
+#define ACTIVE_BOARD BOARD_WS2812B_MATRIX   // default; or BOARD_MAX7219_MATRIX
 ```
 Then, in the Arduino IDE:
 1. Open `led_serial_listener.ino` (the IDE loads `board_config.h` and the driver `.cpp` files alongside it automatically).
@@ -113,7 +113,9 @@ accelerate launch --config_file conf/accelerate.yaml train.py --config-name conf
 ```
 Set `conf/wandb_workspace_url.txt` to your own saved multi-run workspace view to have `train.py` print a link to it alongside each run's URL.
 
-Checkpoints land in `trained_models/<run_name>_seed<seed>/epoch_N/`, one directory per seed, each with its own resolved `config.yaml` so an eval script can reconstruct the exact architecture later. [`run_ablation.py`](run_ablation.py) sweeps the `conf/config_train_h*_l*_hist*.yaml` architecture configs across `cfg.seeds`, skipping any checkpoint that already exists:
+Checkpoints land in `trained_models/<run_name>_seed<seed>/epoch_N/`, one directory per seed, each with its own resolved `config.yaml` so an eval script can reconstruct the exact architecture later.
+
+[`run_ablation.py`](run_ablation.py) sweeps a set of architecture configs (named in its `CONFIGS` list, e.g. `config_train_h64_l3_hist4`) across `cfg.seeds`, skipping any checkpoint that already exists. Only the baseline `conf/config_train.yaml` ships in this repo, so before running an ablation, create one `conf/<name>.yaml` per architecture point by copying it and overriding `network.hidden_dim`, `network.num_layers`, `env.history_length`, and `output.run_name` — then either name them to match `CONFIGS` or pass `--configs <name> ...` explicitly:
 ```
 python3 run_ablation.py --parallel 4
 ```
@@ -122,9 +124,10 @@ python3 run_ablation.py --parallel 4
 
 **Key files:** [`eval_random.py`](eval_random.py), [`build_eval_fixed_dataset.py`](build_eval_fixed_dataset.py), [`eval_fixed_dataset.py`](eval_fixed_dataset.py)
 
+A trained checkpoint is included at `trained_models/h64_l3_hist4_ep150_seed43/epoch_150` (`hidden_dim=64`, `num_layers=3`, 150 epochs) so evaluation can be run immediately, without training first:
 ```
-python3 eval_random.py checkpoint_dir=trained_models/<run>/epoch_150 episodes=200 seed=7
-python3 eval_fixed_dataset.py checkpoint_dir=trained_models/<run>/epoch_150
+python3 eval_random.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150 episodes=200 seed=7
+python3 eval_fixed_dataset.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150
 ```
 `eval_random.py` draws fresh random episodes each run. `eval_fixed_dataset.py` instead replays the same 100 committed problem instances every time (`eval_fixed_dataset.json`, stratified by distance and by whether the target sits near the subgrid's edge), so two checkpoints can be compared on identical problems and broken down by category rather than just an aggregate success rate.
 
@@ -132,7 +135,7 @@ python3 eval_fixed_dataset.py checkpoint_dir=trained_models/<run>/epoch_150
 
 **Key files:** [`eval_ldr_sweep.py`](eval_ldr_sweep.py), [`eval_demo_16-16-ldr-feedback.py`](eval_demo_16-16-ldr-feedback.py), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
 
-This is the closed-loop version of evaluation: the policy's proximity reading comes from a real LDR pointed at the target LED instead of the simulator's distance formula. Two steps:
+This is the closed-loop version of evaluation: the policy's proximity reading comes from a real LDR pointed at the target position instead of the simulator's distance formula. Two steps:
 
 **1. Calibrate once, offline.** A probe LED sweeps the 8×8 window around the target; the LDR's brightness delta from a single ambient baseline is recorded at every cell and pooled by Manhattan distance into the same four levels the trained policy expects.
 ```
@@ -142,6 +145,6 @@ python3 eval_ldr_sweep.py --calibrate
 
 **2. Run the live episode.** Two passes with the same seed: a noiseless "perfect world" reference pass (target visibly lit), then the real LDR-driven pass (target deliberately unlit, so the board never gives away what the sensor has to find on its own).
 ```
-python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=trained_models/<run>/epoch_150 seed=7
+python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150 seed=7
 ```
 Reports steps/return/success for both passes plus the step-count gap between them.

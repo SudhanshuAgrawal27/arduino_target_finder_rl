@@ -1,9 +1,6 @@
-# Shared config for eval_demo_8-8.py, eval_demo_16-16.py, and
-# eval_demo_16-16-ldr-feedback.py -- each runs a single demo episode from a
-# chosen checkpoint while mirroring it live onto the corresponding physical
+# Config for eval_demo_16-16-ldr-feedback.py, which runs a single demo
+# episode from a chosen checkpoint while mirroring it live onto the 16x16
 # LED matrix.
-#   python3 eval_demo_8-8.py
-#   python3 eval_demo_16-16.py
 #   python3 eval_demo_16-16-ldr-feedback.py
 # Override checkpoint_dir/seed to demo a different run/episode.
 
@@ -24,27 +21,19 @@ led_port: /dev/ttyUSB0
 led_baud: 115200
 step_delay_seconds: 1.0
 
-# eval_demo_16-16.py only: how far outside the subgrid (in global-board
-# cells) the blinking boundary outline is drawn, so it doesn't overlap the
-# playable area itself.
+# How far outside the subgrid (in global-board cells) the blinking boundary
+# outline is drawn, so it doesn't overlap the playable area itself.
 boundary_margin: 1
 
-# eval_demo_16-16.py only: run the checkpoint/episode exactly as normal but
-# never open led_port or send any frames -- just print the same success/
-# power summary as a real run would. Lets you check the outcome and power
-# budget without any hardware attached.
-dry_run: false
-
-# eval_demo_16-16-ldr-feedback.py only: how long to wait for the LDR to
-# settle before each read -- reused for the once-per-game ambient baseline
-# and every per-step reading. Should match whatever --linger-seconds was
-# used for `python3 eval_ldr_sweep.py --calibrate`, since the calibration
-# curve it produced is only a valid reference if live readings settle for
-# the same duration.
+# How long to wait for the LDR to settle before each read -- reused for the
+# once-per-game ambient baseline and every per-step reading. Should match
+# whatever --linger-seconds was used for `python3 eval_ldr_sweep.py
+# --calibrate`, since the calibration curve it produced is only a valid
+# reference if live readings settle for the same duration.
 ldr_linger_seconds: 0.25
 
-# eval_demo_16-16-ldr-feedback.py only: path to the JSON produced by
-# `python3 eval_ldr_sweep.py --calibrate` -- see that script for what it
-# contains (a delta-vs-distance curve used to turn live LDR readings into
-# the policy's trained discrete proximity levels).
+# Path to the JSON produced by `python3 eval_ldr_sweep.py --calibrate` --
+# see that script for what it contains (a delta-vs-distance curve used to
+# turn live LDR readings into the policy's trained discrete proximity
+# levels).
 ldr_calibration_file: ldr_calibration.json
