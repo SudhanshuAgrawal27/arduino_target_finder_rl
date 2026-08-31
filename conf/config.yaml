@@ -26,7 +26,7 @@ env:
 network:
   hidden_dim: 64
   window_length: 4  # how many of env.history_length's most recent readings the network consumes; must be <= it
-  num_layers: 2      # number of hidden Linear+ReLU blocks in the shared trunk
+  num_layers: 3      # number of hidden Linear+ReLU blocks in the shared trunk
 
 ppo:
   gamma: 0.99          # discount factor

@@ -12,6 +12,8 @@ It's a blind search, like an ant following a faint scent trail to a sugar cube �
 
 We implement this physically as a grid of LEDs, with a fixed photoresistor (LDR) reading brightness at the target's position. Since physically relocating the LDR every episode isn't practical, the target is instead fixed at the center of a larger 16×16 grid, and each episode uses a different random 8×8 subgrid (window) containing that center — which changes the target's position *relative to* the agent's local 8×8 view without ever moving the sensor. One LED lights up at a time to mark the agent's current position within that window; as it moves from cell to cell, the light reaching the fixed LDR changes with it — brighter the closer the active LED is to the target, dimmer farther away — and that brightness reading is the proximity signal the policy receives, standing in for the "warmth" described above.
 
+<p align="center"><em>Photo of the finished rig — coming soon.</em></p>
+
 We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on this physical hardware.
 
 <p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
@@ -66,18 +68,33 @@ After that, whenever the board drops (driver reinstall, unplug/replug), reattach
 
 ## Circuit Setup
 
-*Coming soon.*
+<p align="center"><em>Circuit diagram — coming soon.</em></p>
 
 ## RL Framework
 
 **Environment** — [`simulator.py`](simulator.py)'s `GridEnvironment`: places the subgrid/target/start, steps the agent (`left`/`right`/`up`/`down`), and reports back a `(x, y, score)` reading. `score` is a pure function of position — 1.0 at the target, decaying linearly to 0 at `score_radius` — so a short history of readings lets the agent tell whether its last move helped. Defaults: `grid_size=16`, `subgrid_size=8`, `score_radius=2`, `max_steps=100`, `history_length=4`.
 
+Reward per step:
+
+| Condition | Reward |
+|---|---|
+| Reached the target | `success_bonus` (default `1.0`) |
+| Otherwise | `score(new) − score(old)` (positive for closing in, negative for backing off) |
+| ...and the new cell is blank (outside `score_radius`, `score == 0`) | additionally `− step_penalty` (default `0.01`) |
+| ...and the move was illegal (hit the subgrid boundary, a no-op) | additionally `− wall_penalty` (default `0.05`) |
+
 **Network** — [`network.py`](network.py)'s `ActorCritic`, a shared-trunk MLP:
 ```
-(x, y, score) × window_length  →  Linear→ReLU × num_layers  ─┬─ policy head → 4 action logits
-                                                               └─ value head  → 1 scalar
+input:  (x, y, score) × window_length
+   ↓
+Linear(window_length×3 → hidden_dim)
+   ↓ ReLU
+Linear(hidden_dim → hidden_dim)            repeated, num_layers hidden blocks total
+   ↓ ReLU
+   ├─ policy head → Linear(hidden_dim → 4)   action logits
+   └─ value head  → Linear(hidden_dim → 1)   scalar value
 ```
-Defaults: `window_length=4` (how many of the environment's `history_length` readings the network sees), `hidden_dim=128`, `num_layers=2`.
+Defaults: `window_length=4` (how many of the environment's `history_length` readings the network sees), `hidden_dim=64`, `num_layers=3`.
 
 **Training signal** — [`ppo.py`](ppo.py) implements clipped-surrogate PPO with GAE advantages (computed per episode in [`rollout.py`](rollout.py)):
 
@@ -88,8 +105,6 @@ r_t(θ) = π_θ(a_t|s_t) / π_θold(a_t|s_t)        L_CLIP(θ) = E_t[ min(r_t·A
 
 L(θ) = −L_CLIP(θ) + c1·(V(s_t) − R_t)² − c2·entropy(π_θ)
 ```
-
-`V(s_final) = 0` when the episode `terminated` (target reached); it's bootstrapped from the critic when it was `truncated` by the step cap instead — this is why the environment tracks the two separately.
 
 ## Tests
 
