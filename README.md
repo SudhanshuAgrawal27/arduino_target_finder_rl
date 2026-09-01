@@ -40,12 +40,14 @@ pytest test_docker_setup.py -v
 
 One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver. Two boards are supported — a 16×16 WS2812B panel (default) and an 8×8 MAX7219 matrix — plus an LM358 photoresistor module for proximity feedback.
 
-**Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
+**Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py), [`arduino/led_board_controller/power_model.py`](arduino/led_board_controller/power_model.py)
 
 **Wiring:**
 - WS2812B panel (default): data line → pin `6` (through a 330Ω series resistor), power from `5V`/`GND`
 - MAX7219 matrix: `DIN → 12`, `CLK → 11`, `CS → 10`
 - LM358 photoresistor module: `VCC → 5V`, `GND → GND`, `AO → A0`
+
+**Power:** the panel runs directly off the Arduino's own `5V` pin — no external supply needed. Two things keep it within that limit: only a handful of LEDs are ever lit at once (the agent plus a few blinking boundary/target/trail pixels, never anywhere near all 256), and the firmware caps the global strip brightness at `kBrightness=40/255` (`ws2812b_matrix_driver.cpp`) as a safety margin on top of that. Together these keep draw to roughly 14mA average / 20mA peak across the whole panel (estimated per-frame by `power_model.py`) — well within what the Arduino's onboard regulator and USB supply. Lighting many more LEDs at once or raising the brightness cap changes this math fast: 256 LEDs at full brightness/white can draw on the order of 15A, far more than USB or the onboard regulator can provide — move to an external 5V supply first if you do either.
 
 Set the active driver in `board_config.h`:
 ```c
