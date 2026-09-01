@@ -25,6 +25,13 @@ step_delay_seconds: 1.0
 # outline is drawn, so it doesn't overlap the playable area itself.
 boundary_margin: 1
 
+# Whether the perfect-world run briefly lights the 4 candidate next cells in
+# yellow (scaled by policy probability) before each move -- see
+# show_thinking() in eval_demo_16-16-ldr-feedback.py. Purely cosmetic; the
+# real LDR-driven run never shows this regardless of this setting (it must
+# not reveal anything beyond its own sensor reading).
+show_thinking: false
+
 # How long to wait for the LDR to settle before each read -- reused for the
 # once-per-game ambient baseline and every per-step reading. Should match
 # whatever --linger-seconds was used for `python3 eval_ldr_sweep.py

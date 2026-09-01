@@ -365,10 +365,12 @@ def main(cfg):
     )
     # on_think=show_thinking: simulation-only -- never passed to the real
     # LDR-driven run below, which must not reveal anything beyond its own
-    # sensor reading.
+    # sensor reading. Gated by cfg.show_thinking so the yellow preview can
+    # be turned off without touching code.
     dummy_trajectory = run_simulation(
         env=dummy_env, engine="mlp_network", network=network,
-        on_step=dummy_display.update, on_think=lambda env, probs: show_thinking(ser, env, probs),
+        on_step=dummy_display.update,
+        on_think=(lambda env, probs: show_thinking(ser, env, probs)) if cfg.show_thinking else None,
     )
 
     # --- 2. Real run second: same seed (so the same subgrid/start/target),
