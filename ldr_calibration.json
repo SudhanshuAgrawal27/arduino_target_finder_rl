@@ -12,26 +12,26 @@
   "score_radius": 2,
   "num_runs": 3,
   "linger_seconds": 0.25,
-  "baseline": 164,
+  "baseline": 100,
   "levels": {
     "background": {
       "score": 0.0,
-      "avg_delta": 0.14705882352941177,
-      "n_samples": 136
+      "avg_delta": 61.72549019607843,
+      "n_samples": 153
     },
     "2": {
       "score": 0.3333333333333333,
-      "avg_delta": 84.3913043478261,
-      "n_samples": 23
+      "avg_delta": 151.66666666666666,
+      "n_samples": 24
     },
     "1": {
       "score": 0.6666666666666666,
-      "avg_delta": 115.5,
-      "n_samples": 10
+      "avg_delta": 184.91666666666666,
+      "n_samples": 12
     },
     "0": {
       "score": 1.0,
-      "avg_delta": 129.0,
+      "avg_delta": 198.33333333333334,
       "n_samples": 3
     }
   }

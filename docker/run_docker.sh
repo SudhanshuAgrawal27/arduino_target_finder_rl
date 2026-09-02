@@ -15,10 +15,16 @@ SSH_PORT="${2:-2222}"
 IMAGE="tf-512-gpu"
 WORKSPACE="$(cd "$(dirname "$0")/.." && pwd)"
 
+# Windows username (may differ from the WSL user), used to locate the
+# Windows-side SSH keys/config under /c/Users/<win_user>.
+WIN_USER="$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r\n')"
+WIN_USER="${WIN_USER:-$USER}"
+WIN_HOME="/c/Users/$WIN_USER"
+
 # Collect all SSH public keys (WSL + Windows) to inject into the container
 AUTHORIZED_KEYS=""
 for f in "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/id_rsa.pub" \
-          "/c/Users/youruser/.ssh/id_ed25519.pub" "/c/Users/youruser/.ssh/id_rsa.pub"; do
+          "$WIN_HOME/.ssh/id_ed25519.pub" "$WIN_HOME/.ssh/id_rsa.pub"; do
     [[ -f "$f" ]] && AUTHORIZED_KEYS+="$(cat "$f")"$'\n'
 done
 AUTHORIZED_KEYS="$(echo "$AUTHORIZED_KEYS" | sort -u | grep -v '^$')"
@@ -115,7 +121,7 @@ EOF
 }
 
 upsert_ssh_config "$HOME/.ssh/config"                  "~/.ssh/id_ed25519"
-upsert_ssh_config "/c/Users/youruser/.ssh/config"         'C:\Users\youruser\.ssh\id_ed25519'
+upsert_ssh_config "$WIN_HOME/.ssh/config"              "C:\\Users\\$WIN_USER\\.ssh\\id_ed25519"
 
 echo ""
 echo "Container '$CONTAINER_NAME' started."

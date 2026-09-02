@@ -12,7 +12,7 @@ Docker Engine runs natively inside WSL2 (Ubuntu 20.04), managed by systemd. Ther
 `/etc/wsl.conf` has `systemd=true` so systemd runs as PID 1 inside WSL2. Docker is managed as a systemd service via socket activation — the daemon starts on first `docker` command.
 
 ### Docker group
-The `youruser` user is in the `docker` group, so `docker` commands work without `sudo`.
+Your WSL user is in the `docker` group, so `docker` commands work without `sudo`.
 
 ### Auto-start in `.bashrc`
 ```bash
@@ -68,7 +68,7 @@ This script:
    - `--shm-size=16g` for PyTorch DataLoader workers
    - Port `2222:22` for SSH
    - Ports `6006` (TensorBoard) and `8888` (Jupyter)
-3. Injects SSH public keys from both WSL (`~/.ssh/`) and Windows (`/c/Users/youruser/.ssh/`) into `/root/.ssh/authorized_keys`
+3. Injects SSH public keys from both WSL (`~/.ssh/`) and Windows (`/c/Users/<win-user>/.ssh/`) into `/root/.ssh/authorized_keys`, where `<win-user>` is auto-detected via `cmd.exe` (falls back to `$USER`)
 
 ### Why the VS Code extension and Claude login used to reset every run
 
@@ -93,17 +93,17 @@ Two keys are authorized inside the container:
 | Key | Location | Used by |
 |-----|----------|---------|
 | `id_ed25519` (WSL) | `~/.ssh/id_ed25519` | WSL terminal SSH |
-| `id_ed25519` (Windows) | `C:\Users\youruser\.ssh\id_ed25519` | VS Code Remote-SSH |
+| `id_ed25519` (Windows) | `C:\Users\<win-user>\.ssh\id_ed25519` | VS Code Remote-SSH |
 
 These are **different key pairs** — both are injected on container start by `docker/run_docker.sh`.
 
-The Windows SSH config at `C:\Users\youruser\.ssh\config` has:
+The Windows SSH config at `C:\Users\<win-user>\.ssh\config` has:
 ```
 Host training-container
     HostName localhost
     Port 2222
     User root
-    IdentityFile C:\Users\youruser\.ssh\id_ed25519
+    IdentityFile C:\Users\<win-user>\.ssh\id_ed25519
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 ```
