@@ -1,0 +1,34 @@
+# Config for eval_ldr_benchmark.py, which runs the fixed evaluation dataset
+# (eval_fixed_dataset.json) through both a noiseless simulation pass and a
+# real LDR-driven pass for every entry, then reports aggregate stats.
+#   python3 eval_ldr_benchmark.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150
+
+defaults:
+  - override hydra/job_logging: disabled
+  - override hydra/hydra_logging: disabled
+  - _self_
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
+checkpoint_dir: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
+dataset_path: eval_fixed_dataset.json
+
+led_port: /dev/ttyUSB0
+led_baud: 115200
+
+# How far outside the subgrid (in global-board cells) the boundary used for
+# the baseline reading is drawn -- must match whatever eval_demo_16-16-ldr-
+# feedback.py / eval_ldr_sweep.py --calibrate used, so the baseline stays
+# comparable to the calibration curve.
+boundary_margin: 1
+
+# How long to wait for the LDR to settle before each read. Must match
+# whatever --linger-seconds was used for `python3 eval_ldr_sweep.py
+# --calibrate` -- see eval_demo_config.yaml's copy of this same field.
+ldr_linger_seconds: 0.25
+
+# Path to the JSON produced by `python3 eval_ldr_sweep.py --calibrate`.
+ldr_calibration_file: ldr_calibration.json
