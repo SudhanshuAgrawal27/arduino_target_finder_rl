@@ -1,6 +1,6 @@
 # Blind Target Search
 
-*Learning to find a hidden target with reinforcement learning, then evaluating the trained policy on an Arduino with a light sensor.*
+*Learning to find a hidden target with reinforcement learning. Deploying the trained policy on an Arduino with LEDs and a light sensor.*
 
 ## The problem
 
@@ -18,7 +18,7 @@ We train a PPO policy to solve this purely in simulation, then evaluate the trai
 
 <p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
 
-The policy and the environment both live on a host machine in Python; the Arduino only drives the LED display and reports the LDR reading.
+The policy and the environment both live on a host machine in Python; the Arduino drives the LED display and reports the LDR reading.
 
 <p align="center"><img src="assets/board-demo.gif" width="360" alt="The panel mid-episode in a dark room: the boundary lit green around the current subgrid, the agent glowing white, and a dim red trail behind it"></p>
 
