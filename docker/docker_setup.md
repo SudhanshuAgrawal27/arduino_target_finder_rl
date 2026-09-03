@@ -53,11 +53,12 @@ To rebuild:
 ## Starting the Container
 
 ```bash
-./docker/run_docker.sh
+./docker/run_docker.sh [container-name] [ssh-port]
 ```
+Defaults to container name `training` and SSH port `2222` if omitted.
 
 This script:
-1. Removes any stale container named `training`
+1. Removes any stale container with that name
 2. Starts a new detached container with:
    - GPU access (`--gpus all`)
    - `/workspace` → project directory
@@ -65,10 +66,18 @@ This script:
    - `~/.docker-persist/<container-name>/vscode-server` → `/root/.vscode-server`
    - `~/.docker-persist/<container-name>/claude` → `/root/.claude`
    - `~/.docker-persist/<container-name>/claude.json` → `/root/.claude.json`
-   - `--shm-size=16g` for PyTorch DataLoader workers
-   - Port `2222:22` for SSH
-   - Ports `6006` (TensorBoard) and `8888` (Jupyter)
+   - `--shm-size=16g`, `--ulimit memlock=-1`, `--ulimit stack=67108864` for PyTorch DataLoader workers
+   - Port `<ssh-port>:22` for SSH
+   - The Arduino's serial device (`/dev/ttyUSB0`/`/dev/ttyACM0`), if already attached to WSL at container-start time, passed through via `--device`, plus wildcard `--device-cgroup-rule`s for USB-serial/CDC-ACM devices so it can be *reattached* later without recreating the container (see below)
 3. Injects SSH public keys from both WSL (`~/.ssh/`) and Windows (`/c/Users/<win-user>/.ssh/`) into `/root/.ssh/authorized_keys`, where `<win-user>` is auto-detected via `cmd.exe` (falls back to `$USER`)
+
+### Reconnecting the Arduino
+
+The CH340 USB-serial adapter (VID:PID `1a86:7523`) commonly drops out of WSL after a driver reinstall or a plain unplug/replug. Rather than recreating the container, reattach it:
+```bash
+bash docker/reconnect_usb.sh [container-name]
+```
+This looks up the device's busid via `usbipd.exe list`, reattaches it to WSL (`usbipd.exe attach`), waits for `/dev/ttyUSB0` to reappear on the WSL host, then recreates that device node inside the already-running container to match its major/minor number — no container restart needed. See [`reconnect_usb.sh`](reconnect_usb.sh).
 
 ### Why the VS Code extension and Claude login used to reset every run
 
