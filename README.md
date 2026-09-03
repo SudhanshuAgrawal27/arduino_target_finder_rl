@@ -24,7 +24,7 @@ The policy and the environment both live on a host machine in Python; the Arduin
 
 ## Docker Setup
 
-Training and evaluation run inside a CUDA-enabled container so the environment (PyTorch, Hydra, accelerate, the Arduino CLI for firmware verification) is reproducible across machines.
+Training and evaluation run inside a CUDA-enabled container.
 
 **Key files:** [`docker/Dockerfile`](docker/Dockerfile), [`docker/build_docker.sh`](docker/build_docker.sh), [`docker/run_docker.sh`](docker/run_docker.sh), [`docker/docker_setup.md`](docker/docker_setup.md)
 
@@ -40,7 +40,7 @@ pytest test_docker_setup.py -v
 
 ## Arduino Setup
 
-One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver. Two boards are supported — a 16×16 WS2812B panel (default) and an 8×8 MAX7219 matrix — plus an LM358 photoresistor module for proximity feedback.
+One shared sketch drives whichever LED board is wired up; a compile-time flag picks the driver. Two boards are supported — a 16×16 WS2812B panel (default) and an 8×8 MAX7219 matrix, alongside an LM358 photoresistor module for proximity feedback.
 
 **Key files:** [`arduino/led_board_controller/firmware/led_serial_listener/`](arduino/led_board_controller/firmware/led_serial_listener/) (`led_serial_listener.ino`, `board_config.h`, `max7219_matrix_driver.cpp`, `ws2812b_matrix_driver.cpp`), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py), [`arduino/led_board_controller/power_model.py`](arduino/led_board_controller/power_model.py)
 
@@ -49,7 +49,7 @@ One shared sketch drives whichever LED board is wired up; a compile-time flag pi
 - MAX7219 matrix: `DIN → 12`, `CLK → 11`, `CS → 10`
 - LM358 photoresistor module: `VCC → 5V`, `GND → GND`, `AO → A0`
 
-**Power:** the panel runs directly off the Arduino's own `5V` pin — no external supply needed. Two things keep it within that limit: only a handful of LEDs are ever lit at once (the agent plus a few blinking boundary/target/trail pixels, never anywhere near all 256), and the firmware caps the global strip brightness at `kBrightness=40/255` (`ws2812b_matrix_driver.cpp`) as a safety margin on top of that. Together these keep draw to roughly 14mA average / 20mA peak across the whole panel (estimated per-frame by `power_model.py`) — well within what the Arduino's onboard regulator and USB supply. Lighting many more LEDs at once or raising the brightness cap changes this math fast: 256 LEDs at full brightness/white can draw on the order of 15A, far more than USB or the onboard regulator can provide — move to an external 5V supply first if you do either.
+**Power:** the panel runs directly off the Arduino's own `5V` pin — no external supply needed. Two things keep it within that limit: only a handful of LEDs are ever lit at once (the agent plus a few blinking boundary/target/trail pixels, never anywhere near all 256), and the firmware caps the global strip brightness at `kBrightness=40/255` (`ws2812b_matrix_driver.cpp`) as a safety margin on top of that. Together these keep draw to roughly 14mA average / 20mA peak across the whole panel (estimated per-frame by `power_model.py`) — well within what the Arduino's onboard regulator and USB supply. However, lighting many more LEDs at once or raising the brightness cap changes this: 256 LEDs at full brightness/white can draw on the order of 15A, far more than USB or the onboard regulator can provide — move to an external 5V supply first if that is required.
 
 Set the active driver in `board_config.h`:
 ```c
@@ -84,8 +84,8 @@ Reward per step:
 |---|---|
 | Reached the target | `success_bonus` (default `1.0`) |
 | Otherwise | `score(new) − score(old)` (positive for closing in, negative for backing off) |
-| ...and the new cell is blank (outside `score_radius`, `score == 0`) | additionally `− step_penalty` (default `0.01`) |
-| ...and the move was illegal (hit the subgrid boundary, a no-op) | additionally `− wall_penalty` (default `0.05`) |
+| If the new cell is blank (outside `score_radius`, `score == 0`) |  `− step_penalty` (default `0.01`) |
+| If the move was illegal (hit the subgrid boundary, a no-op) | `− wall_penalty` (default `0.05`) |
 
 **Network** — [`network.py`](network.py)'s `ActorCritic`, a shared-trunk MLP:
 ```
@@ -123,7 +123,7 @@ Covers the environment (subgrid/target placement, movement clamping, termination
 
 **Key files:** [`train.py`](train.py), [`conf/config.yaml`](conf/config.yaml) (fast smoke test), [`conf/config_train.yaml`](conf/config_train.yaml) (full 150-epoch run), [`run_ablation.py`](run_ablation.py)
 
-One epoch = collect `episodes_per_epoch` episodes → GAE → a few epochs of minibatch PPO updates → a deterministic eval pass → checkpoint. Everything is a [Hydra](https://hydra.cc) config field, overridable on the command line.
+One epoch = collect `episodes_per_epoch` episodes → GAE → a few epochs of minibatch PPO updates → a deterministic eval pass → checkpoint. Everything is a Hydra config field, overridable on the command line.
 
 Logging goes to [Weights & Biases](https://wandb.ai) — run `wandb login` once, then:
 ```
@@ -150,7 +150,7 @@ A trained checkpoint is included at `trained_models/h64_l3_hist4_ep150_seed43/ep
 python3 eval_random.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150 episodes=200 seed=7
 python3 eval_fixed_dataset.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150
 ```
-`eval_random.py` draws fresh random episodes each run. `eval_fixed_dataset.py` instead replays the same 100 committed problem instances every time (`eval_fixed_dataset.json`, stratified by distance and by whether the target sits near the subgrid's edge), so two checkpoints can be compared on identical problems and broken down by category rather than just an aggregate success rate.
+`eval_random.py` draws fresh random episodes each run. `eval_fixed_dataset.py` instead replays the same 100 committed problem instances every time (`eval_fixed_dataset.json`, stratified by distance and by whether the target sits near the subgrid's edge), so two checkpoints can be compared on identical problems and broken down by category.
 
 ## Evaluation with Arduino
 
