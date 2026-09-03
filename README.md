@@ -1,4 +1,4 @@
-# Blind Target Search
+# Blind Target Search with Reinforcement Learning Deployed on an Arduino
 
 *Learning to find a hidden target with reinforcement learning. Deploying the trained policy on an Arduino with LEDs and a light sensor.*
 
