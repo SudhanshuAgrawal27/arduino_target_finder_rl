@@ -72,7 +72,7 @@ After that, whenever the board drops (driver reinstall, unplug/replug), reattach
 
 ## Circuit Setup
 
-<p align="center"><em>Circuit diagram — coming soon.</em></p>
+<p align="center"><img src="assets/circuit-diagram.png" width="700" alt="Circuit diagram: laptop over USB to an Arduino Uno, D6 through a 330Ω resistor to the WS2812B panel's DIN, shared 5V/GND with a 1000µF smoothing capacitor, and an LDR/1kΩ voltage divider into A0"></p>
 
 ## RL Framework
 
