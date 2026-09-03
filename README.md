@@ -154,7 +154,7 @@ python3 eval_fixed_dataset.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_s
 
 ## Evaluation with Arduino
 
-**Key files:** [`eval_ldr_sweep.py`](eval_ldr_sweep.py), [`eval_demo_16-16-ldr-feedback.py`](eval_demo_16-16-ldr-feedback.py), [`eval_ldr_benchmark.py`](eval_ldr_benchmark.py), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
+**Key files:** [`eval_ldr_sweep.py`](eval_ldr_sweep.py), [`eval_demo_16-16-ldr-feedback.py`](eval_demo_16-16-ldr-feedback.py), [`arduino/led_board_controller/led_board_client.py`](arduino/led_board_controller/led_board_client.py)
 
 This is the closed-loop version of evaluation: the policy's proximity reading comes from a real LDR pointed at the target position instead of the simulator's distance formula. Two steps:
 
@@ -169,21 +169,3 @@ python3 eval_ldr_sweep.py --calibrate
 python3 eval_demo_16-16-ldr-feedback.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150 seed=7
 ```
 Reports steps/return/success for both passes plus the step-count gap between them.
-
-**3. Benchmark sim vs. real across the whole fixed dataset.** [`eval_ldr_benchmark.py`](eval_ldr_benchmark.py) runs the same sim/real pair as step 2, but for all 100 entries in `eval_fixed_dataset.json` instead of one seed, headless (no board display or human-facing cosmetics — just the LED positioning each LDR reading actually requires).
-```
-python3 eval_ldr_benchmark.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150
-```
-Reports average steps and success rate for each of the two passes, plus how many instances the real run reached the target in fewer steps than simulation, and vice versa.
-
-
-Checkpoint: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
-Benchmarked 100 fixed-dataset instances
-
-                 Avg Steps  Success Rate
-Simulation           11.30         1.000
-Real (LDR)           47.80         0.600
-
-Real won (fewer steps): 16/100
-Sim won (fewer steps):  58/100
-Ties:                   26/100
