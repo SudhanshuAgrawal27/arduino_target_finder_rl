@@ -11,3 +11,13 @@ trained_models/h64_l3_hist4_ep150_seed43/*
 ldr_test_plot.png
 ldr_sweep_plot.png
 assets/generate_diagrams.py
+
+# Raw photo/video source files -- processed derivatives (assets/rig-photo.png,
+# assets/board-demo.gif) are what's actually committed and referenced from
+# README.md; these originals (the video alone is >150MB) stay local only.
+assets/*.heif
+assets/*.HEIF
+assets/*.MP4
+assets/*.mp4
+assets/board_light_image.jpg
+assets/board_dark_image.jpg

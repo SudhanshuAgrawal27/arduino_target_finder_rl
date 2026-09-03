@@ -8,17 +8,19 @@ A target sits at an unknown location within an 8×8 grid. Each episode, an agent
 
 It's a blind search, like an ant following a faint scent trail to a sugar cube — no map, no coordinates, just a signal that gets stronger or weaker depending on which way it moves.
 
-<p align="center"><img src="assets/grid-image.png" width="560" alt="Grid diagram: target with a two-ring proximity halo, a dashed start square, elsewhere blank"></p>
+<p align="center"><img src="assets/grid-image.png" width="480" alt="Grid diagram: target with a two-ring proximity halo, a dashed start square, elsewhere blank"></p>
 
 We implement this physically as a grid of LEDs, with a fixed photoresistor (LDR) reading brightness at the target's position. Since physically relocating the LDR every episode isn't practical, the target is instead fixed at the center of a larger 16×16 grid, and each episode uses a different random 8×8 subgrid (window) containing that center — which changes the target's position *relative to* the agent's local 8×8 view without ever moving the sensor. One LED lights up at a time to mark the agent's current position within that window; as it moves from cell to cell, the light reaching the fixed LDR changes with it — brighter the closer the active LED is to the target, dimmer farther away — and that brightness reading is the proximity signal the policy receives, standing in for the "warmth" described above.
 
-<p align="center"><em>Photo of the finished rig — coming soon.</em></p>
+<p align="center"><img src="assets/rig-photo.png" width="480" alt="Photo of the finished rig: the WS2812B panel lit mid-episode (agent white, boundary green, trail red, target blue), with the LDR sensor mounted above it and the Arduino/breadboard alongside"></p>
 
 We train a PPO policy to solve this purely in simulation, then evaluate the trained policy on this physical hardware.
 
 <p align="center"><img src="assets/system-diagram.png" width="720" alt="System diagram: host machine running the policy and simulator, connected over USB serial to an Arduino driving an LED matrix and reading an LDR"></p>
 
 The policy and the environment both live on a host machine in Python; the Arduino only drives the LED display and reports the LDR reading.
+
+<p align="center"><img src="assets/board-demo.gif" width="360" alt="The panel mid-episode in a dark room: the boundary lit green around the current subgrid, the agent glowing white, and a dim red trail behind it"></p>
 
 ## Docker Setup
 
@@ -173,3 +175,15 @@ Reports steps/return/success for both passes plus the step-count gap between the
 python3 eval_ldr_benchmark.py checkpoint_dir=trained_models/h64_l3_hist4_ep150_seed43/epoch_150
 ```
 Reports average steps and success rate for each of the two passes, plus how many instances the real run reached the target in fewer steps than simulation, and vice versa.
+
+
+Checkpoint: trained_models/h64_l3_hist4_ep150_seed43/epoch_150
+Benchmarked 100 fixed-dataset instances
+
+                 Avg Steps  Success Rate
+Simulation           11.30         1.000
+Real (LDR)           47.80         0.600
+
+Real won (fewer steps): 16/100
+Sim won (fewer steps):  58/100
+Ties:                   26/100
